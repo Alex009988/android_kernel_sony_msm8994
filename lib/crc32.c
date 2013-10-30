@@ -50,6 +50,30 @@ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@dell.com>");
 MODULE_DESCRIPTION("Various CRC32 calculations");
 MODULE_LICENSE("GPL");
 
+#define GF2_DIM		32
+
+static u32 gf2_matrix_times(u32 *mat, u32 vec)
+{
+	u32 sum = 0;
+
+	while (vec) {
+		if (vec & 1)
+			sum ^= *mat;
+		vec >>= 1;
+		mat++;
+	}
+
+	return sum;
+}
+
+static void gf2_matrix_square(u32 *square, u32 *mat)
+{
+	int i;
+
+	for (i = 0; i < GF2_DIM; i++)
+		square[i] = gf2_matrix_times(mat, mat[i]);
+}
+
 #if CRC_LE_BITS > 8 || CRC_BE_BITS > 8
 
 /* implements slicing-by-4 or slicing-by-8 algorithm */
@@ -202,8 +226,19 @@ u32 __pure __crc32c_le(u32 crc, unsigned char const *p, size_t len)
 			(const u32 (*)[256])crc32ctable_le, CRC32C_POLY_LE);
 }
 #endif
+u32 __pure crc32_le_combine(u32 crc1, u32 crc2, size_t len2)
+{
+	return crc32_generic_combine(crc1, crc2, len2, CRCPOLY_LE);
+}
+
+u32 __pure __crc32c_le_combine(u32 crc1, u32 crc2, size_t len2)
+{
+	return crc32_generic_combine(crc1, crc2, len2, CRC32C_POLY_LE);
+}
 EXPORT_SYMBOL(crc32_le);
+EXPORT_SYMBOL(crc32_le_combine);
 EXPORT_SYMBOL(__crc32c_le);
+EXPORT_SYMBOL(__crc32c_le_combine);
 
 /*
  * This multiplies the polynomials x and y modulo the given modulus.
