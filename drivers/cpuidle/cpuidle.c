@@ -19,6 +19,7 @@
 #include <linux/ktime.h>
 #include <linux/hrtimer.h>
 #include <linux/module.h>
+#include <trace/events/power.h>
 
 #include "cpuidle.h"
 
@@ -213,8 +214,8 @@ void cpuidle_reflect(struct cpuidle_device *dev, int index)
 int cpuidle_idle_call(void)
 {
 	struct cpuidle_device *dev = __this_cpu_read(cpuidle_devices);
-	struct cpuidle_driver *drv;
-	int next_state, entered_state = 0;
+	struct cpuidle_driver *drv = cpuidle_get_cpu_driver(dev);
+	int next_state, entered_state, ret;
 	bool broadcast;
 
 	if (need_resched()) {
@@ -222,14 +223,9 @@ int cpuidle_idle_call(void)
 		return 0;
 	}
 
-	if (off || !initialized)
-		return -ENODEV;
-
-	/* check if the device is ready */
-	if (!dev || !dev->enabled)
-		return -EBUSY;
-
-	drv = cpuidle_get_cpu_driver(dev);
+       ret = cpuidle_enabled(drv, dev);
+       if (ret < 0)
+               return ret;
 
 	/* ask the governor for the next state */
 	next_state = cpuidle_curr_governor->select(drv, dev);
@@ -239,29 +235,32 @@ int cpuidle_idle_call(void)
 	if (need_resched()) {
 		dev->last_residency = 0;
 		/* give the governor an opportunity to reflect on the outcome */
-		if (cpuidle_curr_governor->reflect)
-			cpuidle_curr_governor->reflect(dev, next_state);
+		cpuidle_reflect(dev, next_state);
 		local_irq_enable();
 		return 0;
 	}
 
-	broadcast = !!(drv->states[next_state].flags & CPUIDLE_FLAG_TIMER_STOP);
+	trace_cpu_idle_rcuidle(next_state, dev->cpu);
 
-	if (broadcast)
-		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &dev->cpu);
+	if (need_resched()) {
+		dev->last_residency = 0;
+		local_irq_enable();
+		entered_state = next_state;
+		goto exit;
+	}
 
-	if (cpuidle_state_is_coupled(dev, drv, next_state))
-		entered_state = cpuidle_enter_state_coupled(dev, drv,
-							    next_state);
-	else
-		entered_state = cpuidle_enter_state(dev, drv, next_state);
+	trace_cpu_idle_rcuidle(next_state, dev->cpu);
+
+	entered_state = cpuidle_enter(drv, dev, next_state);
 
 	if (broadcast)
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &dev->cpu);
 
+exit:
+	trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, dev->cpu);
+
 	/* give the governor an opportunity to reflect on the outcome */
-	if (cpuidle_curr_governor->reflect)
-		cpuidle_curr_governor->reflect(dev, entered_state);
+	cpuidle_reflect(dev, entered_state);
 
 	return 0;
 }
