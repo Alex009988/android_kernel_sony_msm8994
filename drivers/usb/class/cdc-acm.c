@@ -554,7 +554,6 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 	retval = acm_set_control(acm, acm->ctrlout);
 	if (retval < 0 && (acm->ctrl_caps & USB_CDC_CAP_LINE))
 		goto error_set_control;
-	}
 
 	/*
 	 * Unthrottle device in case the TTY was closed while throttled.
