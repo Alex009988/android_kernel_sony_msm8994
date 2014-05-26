@@ -547,7 +547,6 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 	if (retval) {
 		dev_err(&acm->control->dev,
 			"%s - usb_submit_urb(ctrl irq) failed\n", __func__);
-		usb_autopm_put_interface(acm->control);
 		goto error_submit_urb;
 	}
 
@@ -583,6 +582,7 @@ error_submit_read_urbs:
 error_set_control:
 	usb_kill_urb(acm->ctrlurb);
 error_submit_urb:
+	usb_autopm_put_interface(acm->control);
 error_get_interface:
 disconnected:
 	mutex_unlock(&acm->mutex);
