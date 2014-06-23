@@ -50,30 +50,6 @@ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@dell.com>");
 MODULE_DESCRIPTION("Various CRC32 calculations");
 MODULE_LICENSE("GPL");
 
-#define GF2_DIM		32
-
-static u32 gf2_matrix_times(u32 *mat, u32 vec)
-{
-	u32 sum = 0;
-
-	while (vec) {
-		if (vec & 1)
-			sum ^= *mat;
-		vec >>= 1;
-		mat++;
-	}
-
-	return sum;
-}
-
-static void gf2_matrix_square(u32 *square, u32 *mat)
-{
-	int i;
-
-	for (i = 0; i < GF2_DIM; i++)
-		square[i] = gf2_matrix_times(mat, mat[i]);
-}
-
 #if CRC_LE_BITS > 8 || CRC_BE_BITS > 8
 
 /* implements slicing-by-4 or slicing-by-8 algorithm */
@@ -226,19 +202,81 @@ u32 __pure __crc32c_le(u32 crc, unsigned char const *p, size_t len)
 			(const u32 (*)[256])crc32ctable_le, CRC32C_POLY_LE);
 }
 #endif
-u32 __pure crc32_le_combine(u32 crc1, u32 crc2, size_t len2)
+EXPORT_SYMBOL(crc32_le);
+EXPORT_SYMBOL(__crc32c_le);
+
+/*
+ * This multiplies the polynomials x and y modulo the given modulus.
+ * This follows the "little-endian" CRC convention that the lsbit
+ * represents the highest power of x, and the msbit represents x^0.
+ */
+static u32 __attribute_const__ gf2_multiply(u32 x, u32 y, u32 modulus)
 {
-	return crc32_generic_combine(crc1, crc2, len2, CRCPOLY_LE);
+	u32 product = x & 1 ? y : 0;
+	int i;
+
+	for (i = 0; i < 31; i++) {
+		product = (product >> 1) ^ (product & 1 ? modulus : 0);
+		x >>= 1;
+		product ^= x & 1 ? y : 0;
+	}
+
+	return product;
 }
 
-u32 __pure __crc32c_le_combine(u32 crc1, u32 crc2, size_t len2)
+/**
+ * crc32_generic_shift - Append len 0 bytes to crc, in logarithmic time
+ * @crc: The original little-endian CRC (i.e. lsbit is x^31 coefficient)
+ * @len: The number of bytes. @crc is multiplied by x^(8*@len)
+ * @polynomial: The modulus used to reduce the result to 32 bits.
+ *
+ * It's possible to parallelize CRC computations by computing a CRC
+ * over separate ranges of a buffer, then summing them.
+ * This shifts the given CRC by 8*len bits (i.e. produces the same effect
+ * as appending len bytes of zero to the data), in time proportional
+ * to log(len).
+ */
+static u32 __attribute_const__ crc32_generic_shift(u32 crc, size_t len,
+						   u32 polynomial)
 {
-	return crc32_generic_combine(crc1, crc2, len2, CRC32C_POLY_LE);
+	u32 power = polynomial;	/* CRC of x^32 */
+	int i;
+
+	/* Shift up to 32 bits in the simple linear way */
+	for (i = 0; i < 8 * (int)(len & 3); i++)
+		crc = (crc >> 1) ^ (crc & 1 ? polynomial : 0);
+
+	len >>= 2;
+	if (!len)
+		return crc;
+
+	for (;;) {
+		/* "power" is x^(2^i), modulo the polynomial */
+		if (len & 1)
+			crc = gf2_multiply(crc, power, polynomial);
+
+		len >>= 1;
+		if (!len)
+			break;
+
+		/* Square power, advancing to x^(2^(i+1)) */
+		power = gf2_multiply(power, power, polynomial);
+	}
+
+	return crc;
 }
-EXPORT_SYMBOL(crc32_le);
-EXPORT_SYMBOL(crc32_le_combine);
-EXPORT_SYMBOL(__crc32c_le);
-EXPORT_SYMBOL(__crc32c_le_combine);
+
+u32 __attribute_const__ crc32_le_shift(u32 crc, size_t len)
+{
+	return crc32_generic_shift(crc, len, CRCPOLY_LE);
+}
+
+u32 __attribute_const__ __crc32c_le_shift(u32 crc, size_t len)
+{
+	return crc32_generic_shift(crc, len, CRC32C_POLY_LE);
+}
+EXPORT_SYMBOL(crc32_le_shift);
+EXPORT_SYMBOL(__crc32c_le_shift);
 
 /*
  * This multiplies the polynomials x and y modulo the given modulus.
