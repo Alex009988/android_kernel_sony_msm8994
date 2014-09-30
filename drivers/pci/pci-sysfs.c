@@ -75,7 +75,7 @@ static ssize_t broken_parity_status_store(struct device *dev,
 }
 
 static ssize_t pci_dev_show_local_cpu(struct device *dev,
-		int type,
+		bool list,
 		struct device_attribute *attr,
 		char *buf)
 {
@@ -87,25 +87,19 @@ static ssize_t pci_dev_show_local_cpu(struct device *dev,
 #else
 	mask = cpumask_of_pcibus(to_pci_dev(dev)->bus);
 #endif
-	len = type ?
-		cpumask_scnprintf(buf, PAGE_SIZE-2, mask) :
-		cpulist_scnprintf(buf, PAGE_SIZE-2, mask);
-
-	buf[len++] = '\n';
-	buf[len] = '\0';
-	return len;
+	return cpumap_print_to_pagebuf(list, buf, mask);
 }
 
 static ssize_t local_cpus_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	return pci_dev_show_local_cpu(dev, 1, attr, buf);
+	return pci_dev_show_local_cpu(dev, false, attr, buf);
 }
 
 static ssize_t local_cpulist_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	return pci_dev_show_local_cpu(dev, 0, attr, buf);
+	return pci_dev_show_local_cpu(dev, true, attr, buf);
 }
 
 /*
