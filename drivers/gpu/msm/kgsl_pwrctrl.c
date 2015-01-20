@@ -60,6 +60,9 @@
  * Kept 80ms default, inline with default GPU idle time.
  */
 #define KGSL_L2PC_CPU_TIMEOUT	(80 * 1000)
+#ifdef CONFIG_CPU_FREQ_GOV_ELEMENTALX
+int graphics_boost = 4;
+#endif
 
 struct clk_pair {
 	const char *name;
@@ -430,6 +433,10 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 			pwr->pwrlevels[old_level].gpu_freq);
 	/* Change register settings if any AFTER pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 0);
+
+#ifdef CONFIG_CPU_FREQ_GOV_ELEMENTALX
+        graphics_boost = pwr->active_pwrlevel;
+#endif
 
 	/* Timestamp the frequency change */
 	device->pwrscale.freq_change_time = ktime_to_ms(ktime_get());
