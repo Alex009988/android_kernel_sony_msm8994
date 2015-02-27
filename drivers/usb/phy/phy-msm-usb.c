@@ -4687,6 +4687,7 @@ static struct platform_device *msm_otg_add_pdev(
 		ci_pdata.enable_ahb2ahb_bypass =
 				otg_pdata->enable_ahb2ahb_bypass;
 		ci_pdata.system_clk = otg_pdata->system_clk;
+		ci_pdata.enable_epprime_fix = otg_pdata->enable_epprime_fix;
 		retval = platform_device_add_data(pdev, &ci_pdata,
 			sizeof(ci_pdata));
 		if (retval)
@@ -5084,6 +5085,9 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	pdata->emulation = of_property_read_bool(node,
 						"qcom,emulation");
 
+	pdata->enable_epprime_fix = of_property_read_bool(node,
+					"qcom,boost-sysclk-with-epprime-fix");
+
 	return pdata;
 }
 
@@ -5125,11 +5129,17 @@ static int msm_otg_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * Get Max supported clk frequency for USB Core CLK and request
-	 * to set the same.
+	 * USB Core CLK can run at max freq if EP prime fix is present. If that
+	 * is the case, get Max supported clk frequency for USB Core CLK and
+	 * request to set the same. Otherwise set USB Core CLK to defined
+	 * default value.
 	 */
-	motg->core_clk_rate = clk_round_rate(motg->core_clk,
-		USB_DEFAULT_SYSTEM_CLOCK);
+	if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,boost-sysclk-with-epprime-fix"))
+		motg->core_clk_rate = clk_round_rate(motg->core_clk, LONG_MAX);
+	else
+		motg->core_clk_rate = clk_round_rate(motg->core_clk,
+						USB_DEFAULT_SYSTEM_CLOCK);
 	if (IS_ERR_VALUE(motg->core_clk_rate)) {
 		dev_err(&pdev->dev, "fail to get core clk max freq.\n");
 	} else {
