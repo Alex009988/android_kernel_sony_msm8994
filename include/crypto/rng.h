@@ -55,6 +55,17 @@ static inline void crypto_free_rng(struct crypto_rng *tfm)
 	crypto_free_tfm(crypto_rng_tfm(tfm));
 }
 
+/**
+ * crypto_rng_get_bytes() - get random number
+ * @tfm: cipher handle
+ * @rdata: output buffer holding the random numbers
+ * @dlen: length of the output buffer
+ *
+ * This function fills the caller-allocated buffer with random numbers using the
+ * random number generator referenced by the cipher handle.
+ *
+ * Return: 0 function was successful; < 0 if an error occurred
+ */
 static inline int crypto_rng_get_bytes(struct crypto_rng *tfm,
 				       u8 *rdata, unsigned int dlen)
 {
