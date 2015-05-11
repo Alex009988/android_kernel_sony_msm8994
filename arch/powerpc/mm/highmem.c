@@ -23,7 +23,13 @@
 #include <linux/highmem.h>
 #include <linux/module.h>
 
-void *kmap_atomic_high_prot(struct page *page, pgprot_t prot)
+/*
+ * The use of kmap_atomic/kunmap_atomic is discouraged - kmap/kunmap
+ * gives a more generic (and caching) interface. But kmap_atomic can
+ * be used in IRQ contexts, so in some (very limited) cases we need
+ * it.
+ */
+void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 {
 	unsigned long vaddr;
 	int idx, type;
@@ -46,13 +52,16 @@ void *kmap_atomic_high_prot(struct page *page, pgprot_t prot)
 }
 EXPORT_SYMBOL(kmap_atomic_prot);
 
-void kunmap_atomic_high(void *kvaddr)
+void __kunmap_atomic(void *kvaddr)
 {
 	unsigned long vaddr = (unsigned long) kvaddr & PAGE_MASK;
 	int type;
 
-	if (vaddr < __fix_to_virt(FIX_KMAP_END))
+	if (vaddr < __fix_to_virt(FIX_KMAP_END)) {
+		pagefault_enable();
+		preempt_enable();
 		return;
+	}
 
 	type = kmap_atomic_idx();
 
@@ -73,5 +82,7 @@ void kunmap_atomic_high(void *kvaddr)
 #endif
 
 	kmap_atomic_idx_pop();
+	pagefault_enable();
+	preempt_enable();
 }
-EXPORT_SYMBOL(kunmap_atomic_high);
+EXPORT_SYMBOL(__kunmap_atomic);

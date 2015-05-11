@@ -37,10 +37,15 @@ static inline enum fixed_addresses kmap_idx(int type, unsigned long color)
 		color;
 }
 
-void *kmap_atomic_high_prot(struct page *page, pgprot_t prot)
+void *kmap_atomic(struct page *page)
 {
 	enum fixed_addresses idx;
 	unsigned long vaddr;
+
+	preempt_disable();
+	pagefault_disable();
+	if (!PageHighMem(page))
+		return page_address(page);
 
 	idx = kmap_idx(kmap_atomic_idx_push(),
 		       DCACHE_ALIAS(page_to_phys(page)));
@@ -48,13 +53,13 @@ void *kmap_atomic_high_prot(struct page *page, pgprot_t prot)
 #ifdef CONFIG_DEBUG_HIGHMEM
 	BUG_ON(!pte_none(*(kmap_pte + idx)));
 #endif
-	set_pte(kmap_pte + idx, mk_pte(page, prot));
+	set_pte(kmap_pte + idx, mk_pte(page, PAGE_KERNEL_EXEC));
 
 	return (void *)vaddr;
 }
-EXPORT_SYMBOL(kmap_atomic_high_prot);
+EXPORT_SYMBOL(kmap_atomic);
 
-void kunmap_atomic_high(void *kvaddr)
+void __kunmap_atomic(void *kvaddr)
 {
 	if (kvaddr >= (void *)FIXADDR_START &&
 	    kvaddr < (void *)FIXADDR_TOP) {
@@ -73,8 +78,11 @@ void kunmap_atomic_high(void *kvaddr)
 
 		kmap_atomic_idx_pop();
 	}
+
+	pagefault_enable();
+	preempt_enable();
 }
-EXPORT_SYMBOL(kunmap_atomic_high);
+EXPORT_SYMBOL(__kunmap_atomic);
 
 void __init kmap_init(void)
 {
