@@ -434,10 +434,6 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	/* Change register settings if any AFTER pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 0);
 
-#ifdef CONFIG_CPU_FREQ_GOV_ELEMENTALX
-        graphics_boost = pwr->active_pwrlevel;
-#endif
-
 	/* Timestamp the frequency change */
 	device->pwrscale.freq_change_time = ktime_to_ms(ktime_get());
 }
