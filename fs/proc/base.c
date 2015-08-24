@@ -87,9 +87,6 @@
 #include <linux/slab.h>
 #include <linux/flex_array.h>
 #include <linux/posix-timers.h>
-#include <linux/qmp_sphinx_instrumentation.h>
-#include <linux/seemp_api.h>
-#include <linux/seemp_instrumentation.h>
 #include <linux/cpufreq.h>
 #ifdef CONFIG_HARDWALL
 #include <asm/hardwall.h>
