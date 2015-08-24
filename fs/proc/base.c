@@ -965,9 +965,6 @@ static ssize_t oom_adj_write(struct file *file, const char __user *buf,
 		goto out;
 	}
 
-	seemp_logk_oom_adjust_write(task->pid,
-			task->cred->uid, oom_adj);
-
 	task_lock(task);
 	if (!task->mm) {
 		err = -EINVAL;
@@ -1070,9 +1067,6 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 		err = -ESRCH;
 		goto out;
 	}
-
-	seemp_logk_oom_adjust_write(task->pid,
-			task->cred->uid, oom_score_adj);
 
 	task_lock(task);
 	if (!task->mm) {
