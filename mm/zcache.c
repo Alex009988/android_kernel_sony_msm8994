@@ -87,8 +87,6 @@ static atomic_t zcache_stored_zero_pages = ATOMIC_INIT(0);
  */
 #define ZERO_HANDLE	((void *)~(~0UL >> 1))
 
-#define GFP_ZCACHE \
-	(__GFP_FS | __GFP_NORETRY | __GFP_NOWARN | __GFP_NOMEMALLOC)
 /*
  * Zcache receives pages for compression through the Cleancache API and is able
  * to evict pages from its own compressed pool on an LRU basis in the case that
