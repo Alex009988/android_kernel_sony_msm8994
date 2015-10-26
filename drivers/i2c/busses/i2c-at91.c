@@ -451,7 +451,6 @@ static int at91_do_twi_transfer(struct at91_twi_dev *dev)
 {
 	int ret;
 	bool has_unre_flag = dev->pdata->has_unre_flag;
-	unsigned sr;
 
 	/*
 	 * WARNING: the TXCOMP bit in the Status Register is NOT a clear on
