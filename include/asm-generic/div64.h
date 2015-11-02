@@ -32,7 +32,11 @@
 
 #elif BITS_PER_LONG == 32
 
+#include <linux/log2.h>
+
+#ifndef __div64_32
 extern uint32_t __div64_32(uint64_t *dividend, uint32_t divisor);
+#endif
 
 /* The unnecessary pointer compare is there
  * to check for type safety (n must be 64bit)
