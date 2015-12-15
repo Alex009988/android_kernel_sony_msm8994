@@ -631,7 +631,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
 		} else {
 			struct netlink_dump_control c = {
 				.module = family->module,
-				.start = genl_lock_start,
+				.start = ops->start,
 				.dump = ops->dumpit,
 				.done = ops->done,
 			};
