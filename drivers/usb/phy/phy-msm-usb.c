@@ -2027,6 +2027,7 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 
 	if (on) {
 		dev_dbg(otg->phy->dev, "host on\n");
+		msm_otg_reset(&motg->phy);
 
 		if (pdata->otg_control == OTG_PHY_CONTROL)
 			ulpi_write(otg->phy, OTG_COMP_DISABLE,
@@ -2038,6 +2039,8 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 
 		wake_up(&motg->host_suspend_wait);
 		usb_remove_hcd(hcd);
+		msm_otg_reset(&motg->phy);
+
 		/* HCD core reset all bits of PORTSC. select ULPI phy */
 		writel_relaxed(0x80000000, USB_PORTSC);
 
