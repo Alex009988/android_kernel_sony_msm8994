@@ -1200,6 +1200,7 @@ static void try_to_steal_freepages(struct zone *zone, struct page *page,
             // allow unmovable allocs up to 64K without migrating blocks
             (start_type == MIGRATE_UNMOVABLE && start_order >= 5) ||
             page_group_by_mobility_disabled) {
+
                 int pages;
 
 		pages = move_freepages_block(zone, page, start_type, 0);
@@ -1237,6 +1238,9 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 			page = list_entry(area->free_list[migratetype].next,
 					struct page, lru);
 			area->nr_free--;
+			if (is_migrate_cma(migratetype))
+				area->nr_free_cma--;
+
 			if (is_migrate_cma(migratetype))
 				area->nr_free_cma--;
 
