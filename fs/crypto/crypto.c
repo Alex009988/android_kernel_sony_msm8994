@@ -332,8 +332,8 @@ EXPORT_SYMBOL(fscrypt_decrypt_page);
  */
 static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 {
-	struct inode *dir = dentry->d_parent->d_inode;
-	struct fscrypt_info *ci = dir->i_crypt_info;
+	struct dentry *dir;
+	struct fscrypt_info *ci;
 	int dir_has_key, cached_with_key;
 
 	if (flags & LOOKUP_RCU)
@@ -343,6 +343,7 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 	if (!d_inode(dir)->i_sb->s_cop->is_encrypted(d_inode(dir))) {
 		dput(dir);
 		return 0;
+	}
 
 	ci = d_inode(dir)->i_crypt_info;
 	if (ci && ci->ci_keyring_key &&
@@ -356,6 +357,7 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 	cached_with_key = dentry->d_flags & DCACHE_ENCRYPTED_WITH_KEY;
 	spin_unlock(&dentry->d_lock);
 	dir_has_key = (ci != NULL);
+	dput(dir);
 
 	/*
 	 * If the dentry was cached without the key, and it is a
