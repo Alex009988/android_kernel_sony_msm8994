@@ -1053,6 +1053,7 @@ static int arp_process(struct sk_buff *skb)
 	if (sip == 0) {
 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
 		    inet_addr_type(net, tip) == RTN_LOCAL &&
+
 		    !arp_ignore(in_dev, sip, tip))
 			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
 				 dev->dev_addr, sha);
@@ -1135,6 +1136,13 @@ __neigh_lookup(struct neigh_table *tbl, const void *pkey, struct net_device *dev
 
 	n = neigh_create(tbl, pkey, dev);
 	return IS_ERR(n) ? NULL : n;
+}
+
+static inline struct neighbour *neigh_create(struct neigh_table *tbl,
+					     const void *pkey,
+					     struct net_device *dev)
+{
+	return __neigh_create(tbl, pkey, dev, true);
 }
 */
 ///////////////////////////////////////////////////
