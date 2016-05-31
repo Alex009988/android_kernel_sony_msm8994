@@ -667,6 +667,9 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 
 	DBG(cdev, "mtp_write(%zu)\n", count);
 
+	if (!dev->ep_in)
+		return -EINVAL;
+
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
 		/* report cancelation to userspace */
