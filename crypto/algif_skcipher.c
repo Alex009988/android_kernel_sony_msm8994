@@ -686,7 +686,7 @@ static int skcipher_setkey(void *private, const u8 *key, unsigned int keylen)
 	return err;
 }
 
-static void skcipher_sock_destruct(struct sock *sk)
+static void skcipher_sock_destruct_common(struct sock *sk)
 {
 	struct alg_sock *ask = alg_sk(sk);
 	struct skcipher_ctx *ctx = ask->private;
@@ -695,6 +695,11 @@ static void skcipher_sock_destruct(struct sock *sk)
 	skcipher_free_sgl(sk);
 	sock_kfree_s(sk, ctx->iv, crypto_ablkcipher_ivsize(tfm));
 	sock_kfree_s(sk, ctx, ctx->len);
+}
+
+static void skcipher_sock_destruct(struct sock *sk)
+{
+	skcipher_sock_destruct_common(sk);
 	af_alg_release_parent(sk);
 }
 
