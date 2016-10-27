@@ -400,7 +400,7 @@ static int hash_setkey(void *private, const u8 *key, unsigned int keylen)
 	return err;
 }
 
-static void hash_sock_destruct(struct sock *sk)
+static void hash_sock_destruct_common(struct sock *sk)
 {
 	struct alg_sock *ask = alg_sk(sk);
 	struct hash_ctx *ctx = ask->private;
@@ -408,6 +408,11 @@ static void hash_sock_destruct(struct sock *sk)
 	sock_kfree_s(sk, ctx->result,
 		     crypto_ahash_digestsize(crypto_ahash_reqtfm(&ctx->req)));
 	sock_kfree_s(sk, ctx, ctx->len);
+}
+
+static void hash_sock_destruct(struct sock *sk)
+{
+	hash_sock_destruct_common(sk);
 	af_alg_release_parent(sk);
 }
 
