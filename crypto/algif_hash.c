@@ -400,7 +400,7 @@ static int hash_setkey(void *private, const u8 *key, unsigned int keylen)
 	return err;
 }
 
-static void hash_sock_destruct_common(struct sock *sk)
+static void hash_sock_destruct(struct sock *sk)
 {
 	struct alg_sock *ask = alg_sk(sk);
 	struct hash_ctx *ctx = ask->private;
