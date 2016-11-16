@@ -29,6 +29,7 @@
 DECLARE_HASHTABLE(uid_hash_table, UID_HASH_BITS);
 
 static spinlock_t cpufreq_stats_lock;
+static DEFINE_SPINLOCK(cpufreq_stats_table_lock);
 
 static DEFINE_SPINLOCK(cpufreq_stats_table_lock);
 static DEFINE_SPINLOCK(task_time_in_state_lock); /* task->time_in_state */
@@ -333,35 +334,19 @@ void acct_update_power(struct task_struct *task, cputime_t cputime) {
 	struct cpufreq_power_stats *powerstats;
 	struct cpufreq_stats *stats;
 	unsigned int cpu_num, curr;
-	int cpu_freq_i;
-	int all_freq_i;
 	unsigned long flags;
-	unsigned long stl_flags;
 
 	if (!task)
 		return;
 
 	cpu_num = task_cpu(task);
-	spin_lock_irqsave(&cpufreq_stats_table_lock, stl_flags);
+	powerstats = per_cpu(cpufreq_power_stats, cpu_num);
+
+	spin_lock_irqsave(&cpufreq_stats_table_lock, flags);
 	stats = per_cpu(cpufreq_stats_table, cpu_num);
-	if (!stats)
-		goto out;
-
-	all_freq_i = atomic_read(&stats->all_freq_i);
-
-	/* This function is called from a different context
-	 * Interruptions in between reads/assignements are ok
-	 */
-	if (all_freq_table && cpufreq_all_freq_init &&
-		!(task->flags & PF_EXITING) &&
-		all_freq_i != -1 && all_freq_i < READ_ONCE(task->max_states)) {
-
-		spin_lock_irqsave(&task_time_in_state_lock, flags);
-		if (task->time_in_state) {
-			atomic64_add(cputime,
-				&task->time_in_state[all_freq_i]);
-		}
-		spin_unlock_irqrestore(&task_time_in_state_lock, flags);
+	if (!powerstats || !stats) {
+		spin_unlock_irqrestore(&cpufreq_stats_table_lock, flags);
+		return;
 	}
 
 	powerstats = per_cpu(cpufreq_power_stats, cpu_num);
@@ -375,9 +360,7 @@ void acct_update_power(struct task_struct *task, cputime_t cputime) {
 	curr = powerstats->curr[cpu_freq_i];
 	if (task->cpu_power != ULLONG_MAX)
 		task->cpu_power += curr * cputime_to_usecs(cputime);
-
-out:
-	spin_unlock_irqrestore(&cpufreq_stats_table_lock, stl_flags);
+	spin_unlock_irqrestore(&cpufreq_stats_table_lock, flags);
 }
 EXPORT_SYMBOL_GPL(acct_update_power);
 
