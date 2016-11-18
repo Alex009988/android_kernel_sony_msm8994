@@ -2616,7 +2616,22 @@ out:
 	return rc;
 }
 
+static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
+	if (atomic_read(&msm_host->controller_clock)) {
+		if (!IS_ERR(msm_host->clk))
+			clk_disable_unprepare(msm_host->clk);
+		if (!IS_ERR(msm_host->pclk))
+			clk_disable_unprepare(msm_host->pclk);
+		sdhci_msm_bus_voting(host, 0);
+		atomic_set(&msm_host->controller_clock, 0);
+		pr_debug("%s: %s: disabled controller clock\n",
+			mmc_hostname(host->mmc), __func__);
+	}
+}
 
 static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 {
@@ -3820,7 +3835,6 @@ static int sdhci_msm_suspend(struct device *dev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 #endif
-	int ret = 0;
 
 #ifndef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
@@ -3833,9 +3847,10 @@ static int sdhci_msm_suspend(struct device *dev)
 		goto out;
 	}
 
-	return sdhci_msm_runtime_suspend(dev);
+	sdhci_msm_runtime_suspend(dev);
 out:
-	return ret;
+	sdhci_msm_disable_controller_clock(host);
+	return 0;
 }
 
 static int sdhci_msm_resume(struct device *dev)
