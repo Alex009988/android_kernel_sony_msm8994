@@ -1323,8 +1323,6 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	_rndis_qc = rndis;
 
-	_rndis_qc = rndis;
-
 	return 0;
 
 fail:
