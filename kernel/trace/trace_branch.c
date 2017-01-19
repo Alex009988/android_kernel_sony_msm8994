@@ -228,7 +228,7 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 	 * conditions that the recursive nightmare that exists is too
 	 * much to try to get working. At least for now.
 	 */
-	trace_likely_condition(f, val, expect);
+	trace_likely_condition(&f->data, val, expect);
 
 	/* FIXME: Make this atomic! */
 	if (val == expect)
