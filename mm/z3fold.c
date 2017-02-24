@@ -238,15 +238,12 @@ static struct z3fold_header *handle_to_z3fold_header(unsigned long handle)
 	return (struct z3fold_header *)(handle & PAGE_MASK);
 }
 
-<<<<<<< HEAD
 /* only for LAST bud, returns zero otherwise */
 static unsigned short handle_to_chunks(unsigned long handle)
 {
 	return (handle & ~PAGE_MASK) >> BUDDY_SHIFT;
 }
 
-=======
->>>>>>> f1f4dbe49f9... mm/z3fold: limit first_num to the actual range of possible buddy indexes
 /*
  * (handle & BUDDY_MASK) < zhdr->first_num is possible in encode_handle
  *  but that doesn't matter. because the masking will result in the
