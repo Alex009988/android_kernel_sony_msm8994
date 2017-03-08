@@ -3,15 +3,12 @@
  *
  * This stubs out the fscrypt functions for filesystems configured without
  * encryption support.
- *
- * Do not include this file directly. Use fscrypt.h instead!
  */
-#ifndef _LINUX_FSCRYPT_H
-#error "Incorrect include of linux/fscrypt_notsupp.h!"
-#endif
 
 #ifndef _LINUX_FSCRYPT_NOTSUPP_H
 #define _LINUX_FSCRYPT_NOTSUPP_H
+
+#include <linux/fscrypt_common.h>
 
 /* crypto.c */
 static inline struct fscrypt_ctx *fscrypt_get_ctx(const struct inode *inode,
@@ -148,15 +145,6 @@ static inline int fscrypt_fname_usr_to_disk(struct inode *inode,
 					    struct fscrypt_str *oname)
 {
 	return -EOPNOTSUPP;
-}
-
-static inline bool fscrypt_match_name(const struct fscrypt_name *fname,
-				      const u8 *de_name, u32 de_name_len)
-{
-	/* Encryption support disabled; use standard comparison */
-	if (de_name_len != fname->disk_name.len)
-		return false;
-	return !memcmp(de_name, fname->disk_name.name, fname->disk_name.len);
 }
 
 /* bio.c */
