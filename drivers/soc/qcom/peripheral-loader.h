@@ -61,6 +61,7 @@ struct pil_desc {
 	bool shutdown_fail;
 	bool clear_fw_region;
 	int dump_in_progress;
+	bool clear_fw_region;
 };
 
 /**
