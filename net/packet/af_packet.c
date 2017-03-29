@@ -1257,8 +1257,6 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po)
 	f->arr[f->num_members] = sk;
 	smp_wmb();
 	f->num_members++;
-	if (f->num_members == 1)
-		dev_add_pack(&f->prot_hook);
 	spin_unlock(&f->lock);
 }
 
@@ -1275,8 +1273,6 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
 	BUG_ON(i >= f->num_members);
 	f->arr[i] = f->arr[f->num_members - 1];
 	f->num_members--;
-	if (f->num_members == 0)
-		__dev_remove_pack(&f->prot_hook);
 	spin_unlock(&f->lock);
 }
 
@@ -1309,6 +1305,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
 	}
 
 	mutex_lock(&fanout_mutex);
+
+	err = -EINVAL;
+	if (!po->running)
+		goto out;
 
 	err = -EALREADY;
 	if (po->fanout)
@@ -1343,13 +1343,11 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
 		match->prot_hook.func = packet_rcv_fanout;
 		match->prot_hook.af_packet_priv = match;
 		match->prot_hook.id_match = match_fanout_group;
+		dev_add_pack(&match->prot_hook);
 		list_add(&match->list, &fanout_list);
 	}
 	err = -EINVAL;
-
-	spin_lock(&po->bind_lock);
-	if (po->running &&
-	    match->type == type &&
+	if (match->type == type &&
 	    match->prot_hook.type == po->prot_hook.type &&
 	    match->prot_hook.dev == po->prot_hook.dev) {
 		err = -ENOSPC;
@@ -1361,24 +1359,12 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
 			err = 0;
 		}
 	}
-	spin_unlock(&po->bind_lock);
-
-	if (err && !atomic_read(&match->sk_ref)) {
-		list_del(&match->list);
-		kfree(match);
-	}
-
 out:
 	mutex_unlock(&fanout_mutex);
 	return err;
 }
 
-/* If pkt_sk(sk)->fanout->sk_ref is zero, this function removes
- * pkt_sk(sk)->fanout from fanout_list and returns pkt_sk(sk)->fanout.
- * It is the responsibility of the caller to call fanout_release_data() and
- * free the returned packet_fanout (after synchronize_net())
- */
-static struct packet_fanout *fanout_release(struct sock *sk)
+static void fanout_release(struct sock *sk)
 {
 	struct packet_sock *po = pkt_sk(sk);
 	struct packet_fanout *f;
@@ -1395,8 +1381,6 @@ static struct packet_fanout *fanout_release(struct sock *sk)
 		}
 	}
 	mutex_unlock(&fanout_mutex);
-
-	return f;
 }
 
 static const struct proto_ops packet_ops;
@@ -2249,7 +2233,7 @@ static int packet_snd(struct socket *sock,
 	int vnet_hdr_len;
 	struct packet_sock *po = pkt_sk(sk);
 	unsigned short gso_type = 0;
-	int hlen, tlen, linear;
+	int hlen, tlen;
 	int extra_len = 0;
 
 	/*
@@ -2343,9 +2327,7 @@ static int packet_snd(struct socket *sock,
 	err = -ENOBUFS;
 	hlen = LL_RESERVED_SPACE(dev);
 	tlen = dev->needed_tailroom;
-	linear = vnet_hdr.hdr_len;
-	linear = max(linear, min_t(int, len, dev->hard_header_len));
-	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, linear,
+	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, vnet_hdr.hdr_len,
 			       msg->msg_flags & MSG_DONTWAIT, &err);
 	if (skb == NULL)
 		goto out_unlock;
@@ -2448,7 +2430,6 @@ static int packet_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct packet_sock *po;
-	struct packet_fanout *f;
 	struct net *net;
 	union tpacket_req_u req_u;
 
@@ -2488,13 +2469,9 @@ static int packet_release(struct socket *sock)
 		packet_set_ring(sk, &req_u, 1, 1);
 	}
 
-	f = fanout_release(sk);
+	fanout_release(sk);
 
 	synchronize_net();
-
-	if (f) {
-		kfree(f);
-	}
 	/*
 	 *	Now the socket is dead. No more input will appear.
 	 */
@@ -2517,20 +2494,17 @@ static int packet_release(struct socket *sock)
 static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protocol)
 {
 	struct packet_sock *po = pkt_sk(sk);
-	int ret = 0;
-
-	lock_sock(sk);
-
-	spin_lock(&po->bind_lock);
 
 	if (po->fanout) {
 		if (dev)
 			dev_put(dev);
 
-		ret = -EINVAL;
-		goto out_unlock;
+		return -EINVAL;
 	}
 
+	lock_sock(sk);
+
+	spin_lock(&po->bind_lock);
 	unregister_prot_hook(sk, true);
 
 	po->num = protocol;
@@ -2557,7 +2531,7 @@ static int packet_do_bind(struct sock *sk, struct net_device *dev, __be16 protoc
 out_unlock:
 	spin_unlock(&po->bind_lock);
 	release_sock(sk);
-	return ret;
+	return 0;
 }
 
 /*
@@ -2568,7 +2542,7 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
 			    int addr_len)
 {
 	struct sock *sk = sock->sk;
-	char name[sizeof(uaddr->sa_data) + 1];
+	char name[15];
 	struct net_device *dev;
 	int err = -ENODEV;
 
@@ -2578,11 +2552,7 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
 
 	if (addr_len != sizeof(struct sockaddr))
 		return -EINVAL;
-	/* uaddr->sa_data comes from the userspace, it's not guaranteed to be
-	 * zero-terminated.
-	 */
-	memcpy(name, uaddr->sa_data, sizeof(uaddr->sa_data));
-	name[sizeof(uaddr->sa_data)] = 0;
+	strlcpy(name, uaddr->sa_data, sizeof(name));
 
 	dev = dev_get_by_name(sock_net(sk), name);
 	if (dev)
@@ -2696,6 +2666,51 @@ out:
 	return err;
 }
 
+static int packet_recv_error(struct sock *sk, struct msghdr *msg, int len)
+{
+	struct sock_exterr_skb *serr;
+	struct sk_buff *skb, *skb2;
+	int copied, err;
+
+	err = -EAGAIN;
+	skb = skb_dequeue(&sk->sk_error_queue);
+	if (skb == NULL)
+		goto out;
+
+	copied = skb->len;
+	if (copied > len) {
+		msg->msg_flags |= MSG_TRUNC;
+		copied = len;
+	}
+	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
+	if (err)
+		goto out_free_skb;
+
+	sock_recv_timestamp(msg, sk, skb);
+
+	serr = SKB_EXT_ERR(skb);
+	put_cmsg(msg, SOL_PACKET, PACKET_TX_TIMESTAMP,
+		 sizeof(serr->ee), &serr->ee);
+
+	msg->msg_flags |= MSG_ERRQUEUE;
+	err = copied;
+
+	/* Reset and regenerate socket error */
+	spin_lock_bh(&sk->sk_error_queue.lock);
+	sk->sk_err = 0;
+	if ((skb2 = skb_peek(&sk->sk_error_queue)) != NULL) {
+		sk->sk_err = SKB_EXT_ERR(skb2)->ee.ee_errno;
+		spin_unlock_bh(&sk->sk_error_queue.lock);
+		sk->sk_error_report(sk);
+	} else
+		spin_unlock_bh(&sk->sk_error_queue.lock);
+
+out_free_skb:
+	kfree_skb(skb);
+out:
+	return err;
+}
+
 /*
  *	Pull a packet from our receive queue and hand it to the user.
  *	If necessary we block.
@@ -2720,8 +2735,7 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
 #endif
 
 	if (flags & MSG_ERRQUEUE) {
-		err = sock_recv_errqueue(sk, msg, len,
-					 SOL_PACKET, PACKET_TX_TIMESTAMP);
+		err = packet_recv_error(sk, msg, len);
 		goto out;
 	}
 
@@ -2985,7 +2999,6 @@ static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
 	i->ifindex = mreq->mr_ifindex;
 	i->alen = mreq->mr_alen;
 	memcpy(i->addr, mreq->mr_address, i->alen);
-	memset(i->addr + i->alen, 0, sizeof(i->addr) - i->alen);
 	i->count = 1;
 	i->next = po->mclist;
 	po->mclist = i;
@@ -3149,19 +3162,14 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
 
 		if (optlen != sizeof(val))
 			return -EINVAL;
+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
+			return -EBUSY;
 		if (copy_from_user(&val, optval, sizeof(val)))
 			return -EFAULT;
 		if (val > INT_MAX)
 			return -EINVAL;
-		lock_sock(sk);
-		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec) {
-			ret = -EBUSY;
-		} else {
-			po->tp_reserve = val;
-			ret = 0;
-		}
-		release_sock(sk);
-		return ret;
+		po->tp_reserve = val;
+		return 0;
 	}
 	case PACKET_LOSS:
 	{
@@ -3309,8 +3317,6 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
 	case PACKET_HDRLEN:
 		if (len > sizeof(int))
 			len = sizeof(int);
-		if (len < sizeof(int))
-			return -EINVAL;
 		if (copy_from_user(&val, optval, len))
 			return -EFAULT;
 		switch (val) {
@@ -3675,7 +3681,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
 		 */
 			if (!tx_ring)
 				init_prb_bdqc(po, rb, pg_vec, req_u, tx_ring);
-			break;
+				break;
 		default:
 			break;
 		}
