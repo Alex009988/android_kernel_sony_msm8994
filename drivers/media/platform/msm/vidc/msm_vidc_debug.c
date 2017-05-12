@@ -31,20 +31,6 @@ int msm_vidc_sys_idle_indicator = 0x0;
 u32 msm_vidc_firmware_unload_delay = 15000;
 int msm_vidc_thermal_mitigation_disabled = 0x0;
 
-struct debug_buffer {
-	struct mutex lock;
-	char ptr[MAX_DBG_BUF_SIZE];
-	char *curr;
-	u32 filled_size;
-};
-
-static struct debug_buffer dbg_buf;
-
-#define INIT_DBG_BUF(__buf) ({ \
-	__buf.curr = __buf.ptr;\
-	__buf.filled_size = 0; \
-})
-
 #define DYNAMIC_BUF_OWNER(__binfo) ({ \
 	atomic_read(&__binfo->ref_count) == 2 ? "video driver" : "firmware";\
 })
@@ -64,13 +50,10 @@ static u32 write_str(char *buffer,
 		size_t size, const char *fmt, ...)
 {
 	va_list args;
-	u32 size;
-
-	char *curr = buffer->curr;
-	char *end = buffer->ptr + MAX_DBG_BUF_SIZE;
+	u32 len;
 
 	va_start(args, fmt);
-	size = vscnprintf(curr, end - curr, fmt, args);
+	len = vscnprintf(buffer, size, fmt, args);
 	va_end(args);
 	return len;
 }
@@ -99,12 +82,10 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	end = cur + MAX_DBG_BUF_SIZE;
 	hdev = core->device;
 
-	mutex_lock(&dbg_buf.lock);
-	INIT_DBG_BUF(dbg_buf);
-	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "CORE %d: 0x%pK\n", core->id, core);
-	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "Core state: %d\n", core->state);
+	cur += write_str(cur, end - cur, "===============================\n");
+	cur += write_str(cur, end - cur, "CORE %d: %pK\n", core->id, core);
+	cur += write_str(cur, end - cur, "===============================\n");
+	cur += write_str(cur, end - cur, "Core state: %d\n", core->state);
 	rc = call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data, &fw_info);
 	if (rc) {
 		dprintk(VIDC_WARN, "Failed to read FW info\n");
@@ -128,9 +109,9 @@ err_fw_info:
 			"pending" : "done");
 	}
 	len = simple_read_from_buffer(buf, count, ppos,
-			dbg_buf.ptr, dbg_buf.filled_size);
+			dbuf, cur - dbuf);
 
-	mutex_unlock(&dbg_buf.lock);
+	kfree(dbuf);
 	return len;
 }
 
@@ -186,7 +167,6 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 {
 	struct dentry *dir = NULL;
 
-	mutex_init(&dbg_buf.lock);
 	dir = debugfs_create_dir("msm_vidc", NULL);
 	if (IS_ERR_OR_NULL(dir)) {
 		dir = NULL;
@@ -352,15 +332,39 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	int i, j;
 	ssize_t len = 0;
 
+	if (!idata || !idata->core || !idata->inst) {
+		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
+		return 0;
+	}
+
+	core = idata->core;
+	inst = idata->inst;
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(temp, &core->instances, list) {
+		if (temp == inst)
+			break;
+	}
+	inst = (temp == inst)?
+		inst : NULL;
+	mutex_unlock(&core->lock);
+
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: Instance has become obsolete", __func__);
 		return 0;
 	}
 
-	mutex_lock(&dbg_buf.lock);
-	INIT_DBG_BUF(dbg_buf);
-	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "INSTANCE: 0x%pK (%s)\n", inst,
+	dbuf = kzalloc(MAX_DBG_BUF_SIZE, GFP_KERNEL);
+	if (!dbuf) {
+		dprintk(VIDC_ERR, "%s: Allocation failed!\n", __func__);
+		len = -ENOMEM;
+		goto failed_alloc;
+	}
+	cur = dbuf;
+	end = cur + MAX_DBG_BUF_SIZE;
+
+	cur += write_str(cur, end - cur, "==============================\n");
+	cur += write_str(cur, end - cur, "INSTANCE: %pK (%s)\n", inst,
 		inst->session_type == MSM_VIDC_ENCODER ? "Encoder" : "Decoder");
 	cur += write_str(cur, end - cur, "==============================\n");
 	cur += write_str(cur, end - cur, "core: %pK\n", inst->core);
@@ -420,11 +424,25 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		"pending" : "done");
 	}
 
-	publish_unreleased_reference(inst);
+	cur += write_str(cur, end - cur, "ETB Count: %d\n", inst->count.etb);
+	cur += write_str(cur, end - cur, "EBD Count: %d\n", inst->count.ebd);
+	cur += write_str(cur, end - cur, "FTB Count: %d\n", inst->count.ftb);
+	cur += write_str(cur, end - cur, "FBD Count: %d\n", inst->count.fbd);
+
+	publish_unreleased_reference(inst, &cur, end);
 	len = simple_read_from_buffer(buf, count, ppos,
-		dbg_buf.ptr, dbg_buf.filled_size);
-	mutex_unlock(&dbg_buf.lock);
+		dbuf, cur - dbuf);
+
+	kfree(dbuf);
+failed_alloc:
 	return len;
+}
+
+static int inst_info_release(struct inode *inode, struct file *file)
+{
+	dprintk(VIDC_INFO, "Release inode ptr: %pK\n", inode->i_private);
+	file->private_data = NULL;
+	return 0;
 }
 
 static const struct file_operations inst_info_fops = {
@@ -436,7 +454,7 @@ static const struct file_operations inst_info_fops = {
 struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		struct dentry *parent)
 {
-	struct dentry *dir, *info;
+	struct dentry *dir = NULL, *info = NULL;
 	char debugfs_name[MAX_DEBUGFS_NAME];
 	struct core_inst_pair *idata = NULL;
 
@@ -464,7 +482,7 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 
 	info = debugfs_create_file("info", S_IRUGO, dir,
 			idata, &inst_info_fops);
-	if (IS_ERR_OR_NULL(info)) {
+	if (!info) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_file;
 	}
@@ -475,10 +493,35 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 
 failed_create_file:
 	debugfs_remove_recursive(dir);
+	dir = NULL;
+failed_create_dir:
+	kfree(idata);
+exit:
+	return dir;
+
+failed_create_file:
+	debugfs_remove_recursive(dir);
 failed_create_dir:
 	kfree(idata);
 exit:
 	return NULL;
+}
+
+void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst)
+{
+	struct dentry *dentry = NULL;
+
+	if (!inst || !inst->debugfs_root)
+		return;
+
+	dentry = inst->debugfs_root;
+	if (dentry->d_inode) {
+		dprintk(VIDC_INFO, "Destroy %pK\n", dentry->d_inode->i_private);
+		kfree(dentry->d_inode->i_private);
+		dentry->d_inode->i_private = NULL;
+	}
+	debugfs_remove_recursive(dentry);
+	inst->debugfs_root = NULL;
 }
 
 void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst)
@@ -545,10 +588,5 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Invalid state in debugfs: %d\n", e);
 		break;
 	}
-}
-
-void msm_vidc_debugfs_deinit_drv(void)
-{
-	mutex_destroy(&dbg_buf.lock);
 }
 
