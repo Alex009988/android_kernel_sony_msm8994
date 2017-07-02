@@ -267,7 +267,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		goto failed_create_dir;
 	}
 
-	if (!debugfs_create_file("info", S_IRUGO, dir, core, &core_info_fops)) {
+	if (IS_ERR_OR_NULL(debugfs_create_file("info", S_IRUGO, dir, core, &core_info_fops))) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_file;
 	}
@@ -454,7 +454,7 @@ static const struct file_operations inst_info_fops = {
 struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		struct dentry *parent)
 {
-	struct dentry *dir = NULL, *info = NULL;
+	struct dentry *dir, *info;
 	char debugfs_name[MAX_DEBUGFS_NAME];
 	struct core_inst_pair *idata = NULL;
 
@@ -482,7 +482,7 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 
 	info = debugfs_create_file("info", S_IRUGO, dir,
 			idata, &inst_info_fops);
-	if (!info) {
+	if (IS_ERR_OR_NULL(info)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_file;
 	}
@@ -493,35 +493,10 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 
 failed_create_file:
 	debugfs_remove_recursive(dir);
-	dir = NULL;
-failed_create_dir:
-	kfree(idata);
-exit:
-	return dir;
-
-failed_create_file:
-	debugfs_remove_recursive(dir);
 failed_create_dir:
 	kfree(idata);
 exit:
 	return NULL;
-}
-
-void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst)
-{
-	struct dentry *dentry = NULL;
-
-	if (!inst || !inst->debugfs_root)
-		return;
-
-	dentry = inst->debugfs_root;
-	if (dentry->d_inode) {
-		dprintk(VIDC_INFO, "Destroy %pK\n", dentry->d_inode->i_private);
-		kfree(dentry->d_inode->i_private);
-		dentry->d_inode->i_private = NULL;
-	}
-	debugfs_remove_recursive(dentry);
-	inst->debugfs_root = NULL;
 }
 
 void msm_vidc_debugfs_deinit_inst(struct msm_vidc_inst *inst)
