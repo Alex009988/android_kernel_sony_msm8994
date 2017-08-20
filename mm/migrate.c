@@ -37,6 +37,7 @@
 #include <linux/hugetlb_cgroup.h>
 #include <linux/gfp.h>
 #include <linux/balloon_compaction.h>
+#include <linux/ptrace.h>
 #include <trace/events/kmem.h>
 #include <linux/ptrace.h>
 
