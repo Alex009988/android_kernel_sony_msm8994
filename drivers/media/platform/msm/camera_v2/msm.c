@@ -262,41 +262,25 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 		return;
 
 	while (1) {
-<<<<<<< HEAD
 		unsigned long wl_flags;
-=======
-
->>>>>>> c859f599615... msm: camera: Fix Use after free bug in msm_vb2.c.
 		if (try_count > 5) {
 			pr_err("%s : not able to delete stream %d\n",
 				__func__, __LINE__);
 			break;
 		}
 
-<<<<<<< HEAD
 		write_lock_irqsave(&session->stream_rwlock, wl_flags);
-=======
-		write_lock(&session->stream_rwlock);
->>>>>>> c859f599615... msm: camera: Fix Use after free bug in msm_vb2.c.
 		try_count++;
 		stream = msm_queue_find(&session->stream_q, struct msm_stream,
 			list, __msm_queue_find_stream, &stream_id);
 
 		if (!stream) {
-<<<<<<< HEAD
 			write_unlock_irqrestore(&session->stream_rwlock, wl_flags);
-=======
-			write_unlock(&session->stream_rwlock);
->>>>>>> c859f599615... msm: camera: Fix Use after free bug in msm_vb2.c.
 			return;
 		}
 
 		if (msm_vb2_get_stream_state(stream) != 1) {
-<<<<<<< HEAD
 			write_unlock_irqrestore(&session->stream_rwlock, wl_flags);
-=======
-			write_unlock(&session->stream_rwlock);
->>>>>>> c859f599615... msm: camera: Fix Use after free bug in msm_vb2.c.
 			continue;
 		}
 
@@ -306,11 +290,7 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 		kfree(stream);
 		stream = NULL;
 		spin_unlock_irqrestore(&(session->stream_q.lock), flags);
-<<<<<<< HEAD
 		write_unlock_irqrestore(&session->stream_rwlock, wl_flags);
-=======
-		write_unlock(&session->stream_rwlock);
->>>>>>> c859f599615... msm: camera: Fix Use after free bug in msm_vb2.c.
 		break;
 	}
 
