@@ -49,6 +49,17 @@ struct fscrypt_symlink_data {
 	char encrypted_path[1];
 } __packed;
 
+/**
+ * This function is used to calculate the disk space required to
+ * store a filename of length l in encrypted symlink format.
+ */
+static inline u32 fscrypt_symlink_data_len(u32 l)
+{
+	if (l < FS_CRYPTO_BLOCK_SIZE)
+		l = FS_CRYPTO_BLOCK_SIZE;
+	return (l + sizeof(struct fscrypt_symlink_data) - 1);
+}
+
 struct fscrypt_str {
 	unsigned char *name;
 	u32 len;
@@ -79,13 +90,24 @@ struct fscrypt_operations {
 	unsigned int flags;
 	const char *key_prefix;
 	int (*get_context)(struct inode *, void *, size_t);
+	int (*prepare_context)(struct inode *);
 	int (*set_context)(struct inode *, const void *, size_t, void *);
-	bool (*dummy_context)(struct inode *);
+	int (*dummy_context)(struct inode *);
+	bool (*is_encrypted)(struct inode *);
 	bool (*empty_dir)(struct inode *);
 	unsigned (*max_namelen)(struct inode *);
 };
 
-static inline bool fscrypt_valid_contents_enc_mode(u32 mode)
+static inline bool fscrypt_dummy_context_enabled(struct inode *inode)
+{
+	if (inode->i_sb->s_cop->dummy_context &&
+				inode->i_sb->s_cop->dummy_context(inode))
+		return true;
+	return false;
+}
+
+static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
+					u32 filenames_mode)
 {
 	if (contents_mode == FS_ENCRYPTION_MODE_AES_128_CBC &&
 	    filenames_mode == FS_ENCRYPTION_MODE_AES_128_CTS)
@@ -124,6 +146,17 @@ static inline bool fscrypt_has_encryption_key(const struct inode *inode)
 #include <linux/fscrypt_supp.h>
 
 #else /* !__FS_HAS_ENCRYPTION */
+
+static inline struct page *fscrypt_control_page(struct page *page)
+{
+	WARN_ON_ONCE(1);
+	return ERR_PTR(-EINVAL);
+}
+
+static inline bool fscrypt_has_encryption_key(const struct inode *inode)
+{
+	return 0;
+}
 
 #include <linux/fscrypt_notsupp.h>
 #endif /* __FS_HAS_ENCRYPTION */
