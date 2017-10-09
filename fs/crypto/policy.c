@@ -109,7 +109,7 @@ int fscrypt_ioctl_get_policy(struct file *filp, void __user *arg)
 	struct fscrypt_policy policy;
 	int res;
 
-	if (!inode->i_sb->s_cop->is_encrypted(inode))
+	if (!IS_ENCRYPTED(inode))
 		return -ENODATA;
 
 	res = inode->i_sb->s_cop->get_context(inode, &ctx, sizeof(ctx));
