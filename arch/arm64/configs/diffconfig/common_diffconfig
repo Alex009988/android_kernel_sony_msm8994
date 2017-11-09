@@ -293,6 +293,7 @@ CONFIG_EXFAT_COMPAT_TUXERA=y
 
 # eCrypt filesystem
 CONFIG_ECRYPT_FS=y
+<<<<<<< HEAD
 CONFIG_WTL_ENCRYPTION_FILTER=y
 
 # Sony Mobile FIPS AES-XTS/AES-CBC Driver
@@ -330,6 +331,8 @@ CONFIG_HAVE_ARCH_BITREVERSE=y
 CONFIG_DM_VERITY_HASH_PREFETCH_MIN_SIZE_128=y
 # CONFIG_ARM_ARCH_TIMER_VCT_ACCESS is not set
 # CONFIG_FW_CACHE is not set
+=======
+>>>>>>> b4a677ae3c5... diffconfig: add eCrypt FS
 
 # Battery level reporting for HID devices
 CONFIG_HID_BATTERY_STRENGTH=y
