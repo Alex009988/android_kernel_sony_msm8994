@@ -752,8 +752,7 @@ retry:
 		struct page **pages = NULL;
 		mempool_t *pool = NULL;	/* Becomes non-null if mempool used */
 		struct page *page;
-		int want;
-		u64 offset, len;
+		u64 offset = 0, len = 0;
 		long writeback_stat;
 
 		next = 0;
