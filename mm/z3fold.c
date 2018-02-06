@@ -206,7 +206,111 @@ static int num_free_chunks(struct z3fold_header *zhdr)
 	return nfree;
 }
 
-/*****************
+static inline void *mchunk_memmove(struct z3fold_header *zhdr,
+				unsigned short dst_chunk)
+{
+	void *beg = zhdr;
+	return memmove(beg + (dst_chunk << CHUNK_SHIFT),
+		       beg + (zhdr->start_middle << CHUNK_SHIFT),
+		       zhdr->middle_chunks << CHUNK_SHIFT);
+}
+
+#define BIG_CHUNK_GAP	3
+/* Has to be called with lock held */
+static int z3fold_compact_page(struct z3fold_header *zhdr)
+{
+	struct page *page = virt_to_page(zhdr);
+
+	if (test_bit(MIDDLE_CHUNK_MAPPED, &page->private))
+		return 0; /* can't move middle chunk, it's used */
+
+	if (zhdr->middle_chunks == 0)
+		return 0; /* nothing to compact */
+
+	if (zhdr->first_chunks == 0 && zhdr->last_chunks == 0) {
+		/* move to the beginning */
+		mchunk_memmove(zhdr, ZHDR_CHUNKS);
+		zhdr->first_chunks = zhdr->middle_chunks;
+		zhdr->middle_chunks = 0;
+		zhdr->start_middle = 0;
+		zhdr->first_num++;
+		return 1;
+	}
+
+	/*
+	 * moving data is expensive, so let's only do that if
+	 * there's substantial gain (at least BIG_CHUNK_GAP chunks)
+	 */
+	if (zhdr->first_chunks != 0 && zhdr->last_chunks == 0 &&
+	    zhdr->start_middle - (zhdr->first_chunks + ZHDR_CHUNKS) >=
+			BIG_CHUNK_GAP) {
+		mchunk_memmove(zhdr, zhdr->first_chunks + ZHDR_CHUNKS);
+		zhdr->start_middle = zhdr->first_chunks + ZHDR_CHUNKS;
+		return 1;
+	} else if (zhdr->last_chunks != 0 && zhdr->first_chunks == 0 &&
+		   TOTAL_CHUNKS - (zhdr->last_chunks + zhdr->start_middle
+					+ zhdr->middle_chunks) >=
+			BIG_CHUNK_GAP) {
+		unsigned short new_start = TOTAL_CHUNKS - zhdr->last_chunks -
+			zhdr->middle_chunks;
+		mchunk_memmove(zhdr, new_start);
+		zhdr->start_middle = new_start;
+		return 1;
+	}
+
+	return 0;
+}
+
+static void do_compact_page(struct z3fold_header *zhdr, bool locked)
+{
+	struct z3fold_pool *pool = zhdr->pool;
+	struct page *page;
+	struct list_head *unbuddied;
+	int fchunks;
+
+	page = virt_to_page(zhdr);
+	if (locked)
+		WARN_ON(z3fold_page_trylock(zhdr));
+	else
+		z3fold_page_lock(zhdr);
+	if (WARN_ON(!test_and_clear_bit(NEEDS_COMPACTING, &page->private))) {
+		z3fold_page_unlock(zhdr);
+		return;
+	}
+	spin_lock(&pool->lock);
+	list_del_init(&zhdr->buddy);
+	spin_unlock(&pool->lock);
+
+	if (kref_put(&zhdr->refcount, release_z3fold_page_locked)) {
+		atomic64_dec(&pool->pages_nr);
+		return;
+	}
+
+	z3fold_compact_page(zhdr);
+	unbuddied = get_cpu_ptr(pool->unbuddied);
+	fchunks = num_free_chunks(zhdr);
+	if (fchunks < NCHUNKS &&
+	    (!zhdr->first_chunks || !zhdr->middle_chunks ||
+			!zhdr->last_chunks)) {
+		/* the page's not completely free and it's unbuddied */
+		spin_lock(&pool->lock);
+		list_add(&zhdr->buddy, &unbuddied[fchunks]);
+		spin_unlock(&pool->lock);
+		zhdr->cpu = smp_processor_id();
+	}
+	put_cpu_ptr(pool->unbuddied);
+	z3fold_page_unlock(zhdr);
+}
+
+static void compact_page_work(struct work_struct *w)
+{
+	struct z3fold_header *zhdr = container_of(w, struct z3fold_header,
+						work);
+
+	do_compact_page(zhdr, false);
+}
+
+/*
  * API Functions
 *****************/
 /**
@@ -467,7 +571,7 @@ static void z3fold_free(struct z3fold_pool *pool, unsigned long handle)
 /**
  * z3fold_reclaim_page() - evicts allocations from a pool page and frees it
  * @pool:	pool from which a page will attempt to be evicted
- * @retires:	number of pages on the LRU list for which eviction will
+ * @retries:	number of pages on the LRU list for which eviction will
  *		be attempted before failing
  *
  * z3fold reclaim is different from normal system reclaim in that it is done
@@ -477,7 +581,7 @@ static void z3fold_free(struct z3fold_pool *pool, unsigned long handle)
  * z3fold and the user, however.
  *
  * To avoid these, this is how z3fold_reclaim_page() should be called:
-
+ *
  * The user detects a page should be reclaimed and calls z3fold_reclaim_page().
  * z3fold_reclaim_page() will remove a z3fold page from the pool LRU list and
  * call the user-defined eviction handler with the pool and handle as
