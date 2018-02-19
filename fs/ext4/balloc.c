@@ -192,13 +192,6 @@ static int ext4_init_block_bitmap(struct super_block *sb,
 	/* If checksum is bad mark all blocks used to prevent allocation
 	 * essentially implementing a per-group read-only flag. */
 	if (!ext4_group_desc_csum_verify(sb, block_group, gdp)) {
-<<<<<<< HEAD
-		ext4_free_group_clusters_set(sb, gdp, 0);
-		ext4_free_inodes_set(sb, gdp, 0);
-		ext4_itable_unused_set(sb, gdp, 0);
-		memset(bh->b_data, 0xff, sb->s_blocksize);
-		ext4_block_bitmap_csum_set(sb, block_group, gdp, bh);
-=======
 		grp = ext4_get_group_info(sb, block_group);
 		if (!EXT4_MB_GRP_BBITMAP_CORRUPT(grp))
 			percpu_counter_sub(&sbi->s_freeclusters_counter,
@@ -211,7 +204,6 @@ static int ext4_init_block_bitmap(struct super_block *sb,
 					   count);
 		}
 		set_bit(EXT4_GROUP_INFO_IBITMAP_CORRUPT_BIT, &grp->bb_state);
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 		return -EIO;
 	}
 	memset(bh->b_data, 0, sb->s_blocksize);
@@ -248,11 +240,6 @@ static int ext4_init_block_bitmap(struct super_block *sb,
 	 */
 	ext4_mark_bitmap_end(num_clusters_in_group(sb, block_group),
 			     sb->s_blocksize * 8, bh->b_data);
-<<<<<<< HEAD
-=======
-	ext4_block_bitmap_csum_set(sb, block_group, gdp, bh);
-	ext4_group_desc_csum_set(sb, block_group, gdp);
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 	return 0;
 }
 
@@ -349,24 +336,14 @@ static ext4_fsblk_t ext4_valid_block_bitmap(struct super_block *sb,
 	/* check whether block bitmap block number is set */
 	blk = ext4_block_bitmap(sb, desc);
 	offset = blk - group_first_block;
-<<<<<<< HEAD
-	if (offset < 0 || EXT4_B2C(sbi, offset) >= max_bit ||
-	    !ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data))
-=======
 	if (!ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data))
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 		/* bad block bitmap */
 		return blk;
 
 	/* check whether the inode bitmap block number is set */
 	blk = ext4_inode_bitmap(sb, desc);
 	offset = blk - group_first_block;
-<<<<<<< HEAD
-	if (offset < 0 || EXT4_B2C(sbi, offset) >= max_bit ||
-	    !ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data))
-=======
 	if (!ext4_test_bit(EXT4_B2C(sbi, offset), bh->b_data))
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 		/* bad block bitmap */
 		return blk;
 
@@ -469,24 +446,9 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
 		goto verify;
 	}
 	ext4_lock_group(sb, block_group);
-<<<<<<< HEAD
-	if (ext4_has_group_desc_csum(sb) &&
-	    (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))) {
-		int err;
-
-		if (block_group == 0) {
-			ext4_unlock_group(sb, block_group);
-			unlock_buffer(bh);
-			ext4_error(sb, "Block bitmap for bg 0 marked "
-				   "uninitialized");
-			put_bh(bh);
-			return NULL;
-		}
-=======
 	if (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT)) {
 		int err;
 
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 		err = ext4_init_block_bitmap(sb, bh, block_group, desc);
 		set_bitmap_uptodate(bh);
 		set_buffer_uptodate(bh);
