@@ -5138,6 +5138,20 @@ static struct file_system_type vfat_fs_type = {
 MODULE_ALIAS_FS("vfat");
 #endif /* CONFIG_SDFAT_USE_FOR_VFAT */
 
+#ifdef CONFIG_SDFAT_EXFAT_WRAPPER
+static struct file_system_type sdfat_exfat_fs_type = {
+	.owner       = THIS_MODULE,
+	.name        = "exfat",
+	.mount       = sdfat_fs_mount,
+#ifdef CONFIG_SDFAT_DBG_IOCTL
+	.kill_sb    = sdfat_debug_kill_sb,
+#else
+	.kill_sb    = kill_block_super,
+#endif /* CONFIG_SDFAT_DBG_IOCTL */
+	.fs_flags    = FS_REQUIRES_DEV,
+};
+#endif
+
 #ifdef CONFIG_SDFAT_TEXFAT_WRAPPER
 static struct file_system_type sdfat_texfat_fs_type = {
 	.owner       = THIS_MODULE,
@@ -5209,11 +5223,18 @@ static int __init init_sdfat_fs(void)
 		goto error;
 	}
 #endif /* CONFIG_SDFAT_USE_FOR_VFAT */
+#ifdef CONFIG_SDFAT_EXFAT_WRAPPER
+	err = register_filesystem(&sdfat_exfat_fs_type);
+	if (err) {
+		pr_err("[SDFAT] failed to register exfat filesystem wrapper\n");
+		goto error;
+	}
+#endif
 
 #ifdef CONFIG_SDFAT_TEXFAT_WRAPPER
 	err = register_filesystem(&sdfat_texfat_fs_type);
 	if (err) {
-		pr_err("[SDFAT] failed to register texfat filesystem\n");
+		pr_err("[SDFAT] failed to register texfat filesystem wrapper\n");
 		goto error;
 	}
 #endif
@@ -5255,6 +5276,10 @@ static void __exit exit_sdfat_fs(void)
 #ifdef CONFIG_SDFAT_USE_FOR_VFAT
 	unregister_filesystem(&vfat_fs_type);
 #endif /* CONFIG_SDFAT_USE_FOR_VFAT */
+
+#ifdef CONFIG_SDFAT_EXFAT_WRAPPER
+	unregister_filesystem(&sdfat_exfat_fs_type);
+#endif
 
 #ifdef CONFIG_SDFAT_TEXFAT_WRAPPER
 	unregister_filesystem(&sdfat_texfat_fs_type);
