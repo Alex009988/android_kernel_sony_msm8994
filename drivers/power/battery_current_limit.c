@@ -255,7 +255,7 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 				continue;
 			ret = cpu_down(_cpu);
 			if (ret)
-				pr_err("Error %d offlining core %d\n",
+				pr_debug("Error %d offlining core %d\n",
 					ret, _cpu);
 			else
 				pr_debug("Set Offline CPU:%d\n", _cpu);
@@ -264,7 +264,7 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 				continue;
 			ret = cpu_up(_cpu);
 			if (ret)
-				pr_err("Error %d onlining core %d\n",
+				pr_debug("Error %d onlining core %d\n",
 					ret, _cpu);
 			else
 				pr_debug("Allow Online CPU:%d\n", _cpu);
