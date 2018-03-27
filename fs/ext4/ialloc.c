@@ -88,7 +88,6 @@ ext4_read_inode_bitmap(struct super_block *sb, ext4_group_t block_group)
 	struct buffer_head *bh = NULL;
 	ext4_fsblk_t bitmap_blk;
 	struct ext4_group_info *grp;
-	struct ext4_sb_info *sbi = EXT4_SB(sb);
 
 	desc = ext4_get_group_desc(sb, block_group, NULL);
 	if (!desc)
@@ -99,7 +98,7 @@ ext4_read_inode_bitmap(struct super_block *sb, ext4_group_t block_group)
 	    (bitmap_blk >= ext4_blocks_count(sbi->s_es))) {
 		ext4_error(sb, "Invalid inode bitmap blk %llu in "
 			   "block_group %u", bitmap_blk, block_group);
-		return NULL;
+		return ERR_PTR(-EUCLEAN);
 	}
 	bh = sb_getblk(sb, bitmap_blk);
 	if (unlikely(!bh)) {
