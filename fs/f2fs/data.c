@@ -1948,7 +1948,9 @@ retry:
 			struct page *page = pvec.pages[i];
 			bool submitted = false;
 
-			if (page->index > end) {
+			/* give a priority to WB_SYNC threads */
+			if (atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) &&
+					wbc->sync_mode == WB_SYNC_NONE) {
 				done = 1;
 				break;
 			}
@@ -2007,9 +2009,7 @@ continue_unlock:
 				last_idx = page->index;
 			}
 
-			/* give a priority to WB_SYNC threads */
-			if ((atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) ||
-					--wbc->nr_to_write <= 0) &&
+			if (--wbc->nr_to_write <= 0 &&
 					wbc->sync_mode == WB_SYNC_NONE) {
 				done = 1;
 				break;
