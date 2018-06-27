@@ -15,4 +15,8 @@ CONFIG_MEMCG_SWAP=y
 CONFIG_MEMCG_SWAP_ENABLED=y
 CONFIG_MM_OWNER=y
 # CONFIG_CNSS is not set
+<<<<<<< HEAD
 # CONFIG_CNSS_PCI is not set
+=======
+# CONFIG_CNSS_PCI is not set
+>>>>>>> ba0b569bc80... drivers/net: remove bcmdhd
