@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef __LINUX_COMPILER_TYPES_H
 #define __LINUX_COMPILER_TYPES_H
 
@@ -54,31 +55,24 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 
 #ifdef __KERNEL__
 
-#ifdef __GNUC__
-#include <linux/compiler-gcc.h>
-#endif
-
-#define notrace __attribute__((no_instrument_function))
-
-/* Intel compiler defines __GNUC__. So we will overwrite implementations
- * coming from above header files here
- */
-#ifdef __INTEL_COMPILER
-# include <linux/compiler-intel.h>
-#endif
-
-/* Clang compiler defines __GNUC__. So we will overwrite implementations
- * coming from above header files here
- */
-#ifdef __clang__
-#include <linux/compiler-clang.h>
-#endif
+/* Attributes */
+#include <linux/compiler_attributes.h>
 
 /*
- * Generic compiler-dependent macros required for kernel
- * build go below this comment. Actual compiler/compiler version
- * specific implementations come from the above header files
+ * Compiler specific macros.
  */
+/* Clang compiler defines __GNUC__. */
+#ifdef __clang__
+#include <linux/compiler-clang.h>
+/* Intel compiler defines __GNUC__. */
+#elif defined(__INTEL_COMPILER)
+#include <linux/compiler-intel.h>
+/* The above compilers also define __GNUC__, so order is important here. */
+#elif defined(__GNUC__)
+#include <linux/compiler-gcc.h>
+#else
+#error "Unknown compiler"
+#endif
 
 struct ftrace_branch_data {
 	const char *func;
@@ -102,78 +96,47 @@ struct ftrace_likely_data {
 	unsigned long			constant;
 };
 
-#endif /* __KERNEL__ */
-
-#endif /* __ASSEMBLY__ */
-
-#ifdef __KERNEL__
-/*
- * Allow us to mark functions as 'deprecated' and have gcc emit a nice
- * warning for each use, in hopes of speeding the functions removal.
- * Usage is:
- * 		int __deprecated foo(void)
- */
-#ifndef __deprecated
-# define __deprecated		/* unimplemented */
-#endif
-
-#ifdef MODULE
-#define __deprecated_for_modules __deprecated
+#ifdef CONFIG_ENABLE_MUST_CHECK
+#define __must_check		__attribute__((__warn_unused_result__))
 #else
-#define __deprecated_for_modules
-#endif
-
-#ifndef __must_check
 #define __must_check
 #endif
 
-#ifndef CONFIG_ENABLE_MUST_CHECK
-#undef __must_check
-#define __must_check
-#endif
-#ifndef CONFIG_ENABLE_WARN_DEPRECATED
-#undef __deprecated
-#undef __deprecated_for_modules
-#define __deprecated
-#define __deprecated_for_modules
-#endif
-
-#ifndef __malloc
-#define __malloc
-#endif
+#define notrace			__attribute__((__no_instrument_function__))
 
 /*
- * Allow us to avoid 'defined but not used' warnings on functions and data,
- * as well as force them to be emitted to the assembly file.
+ * it doesn't make sense on ARM (currently the only user of __naked)
+ * to trace naked functions because then mcount is called without
+ * stack and frame pointer being set up and there is no chance to
+ * restore the lr register to the value before mcount was called.
  *
- * As of gcc 3.4, static functions that are not marked with attribute((used))
- * may be elided from the assembly file.  As of gcc 3.4, static data not so
- * marked will not be elided, but this may change in a future gcc version.
+ * The asm() bodies of naked functions often depend on standard calling
+ * conventions, therefore they must be noinline and noclone.
  *
- * NOTE: Because distributions shipped with a backported unit-at-a-time
- * compiler in gcc 3.3, we must define __used to be __attribute__((used))
- * for gcc >=3.3 instead of 3.4.
- *
- * In prior versions of gcc, such functions and data would be emitted, but
- * would be warned about except with attribute((unused)).
- *
- * Mark functions that are referenced only in inline assembly as __used so
- * the code is emitted even though it appears to be unreferenced.
+ * GCC 4.[56] currently fail to enforce this, so we must do so ourselves.
+ * See GCC PR44290.
  */
-#ifndef __used
-# define __used			/* unimplemented */
-#endif
+#define __naked			__attribute__((__naked__)) noinline __noclone notrace
 
-#ifndef __maybe_unused
-# define __maybe_unused		/* unimplemented */
-#endif
+#define __compiler_offsetof(a, b)	__builtin_offsetof(a, b)
 
-#ifndef __always_unused
-# define __always_unused	/* unimplemented */
-#endif
-
-#ifndef noinline
-#define noinline
+/*
+ * Force always-inline if the user requests it so via the .config.
+ * GCC does not warn about unused static inline functions for
+ * -Wunused-function.  This turns out to avoid the need for complex #ifdef
+ * directives.  Suppress the warning in clang as well by using "unused"
+ * function attribute, which is redundant but not harmful for gcc.
+ */
+#if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) || \
+	!defined(CONFIG_OPTIMIZE_INLINING)
+#define inline inline		__attribute__((__always_inline__,__unused__)) notrace
+#define __inline__ __inline__	__attribute__((__always_inline__,__unused__)) notrace
+#define __inline __inline	__attribute__((__always_inline__,__unused__)) notrace
+#else
+/* A lot of inline functions can cause havoc with function tracing */
+#define inline inline		__attribute__((__unused__)) notrace
+#define __inline__ __inline__	__attribute__((__unused__)) notrace
+#define __inline __inline	__attribute__((__unused__)) notrace
 #endif
 
 /*
@@ -182,72 +145,80 @@ struct ftrace_likely_data {
  */
 #define noinline_for_stack noinline
 
-#ifndef __always_inline
-#define __always_inline inline
+#ifdef CONFIG_KASAN
+/*
+ * We can't declare function 'inline' because __no_sanitize_address confilcts
+ * with inlining. Attempt to inline it may cause a build failure.
+ * 	https://gcc.gnu.org/bugzilla/show_bug.cgi?id=67368
+ * '__maybe_unused' allows us to avoid defined-but-not-used warnings.
+ */
+# define __no_kasan_or_inline __no_sanitize_address notrace __maybe_unused
+# define __no_sanitize_or_inline __no_kasan_or_inline
+#else
+# define __no_kasan_or_inline __always_inline
+# define __no_sanitize_or_inline __always_inline
 #endif
 
 #endif /* __KERNEL__ */
 
-/*
- * From the GCC manual:
- *
- * Many functions do not examine any values except their arguments,
- * and have no effects except the return value.  Basically this is
- * just slightly more strict class than the `pure' attribute above,
- * since function is not allowed to read global memory.
- *
- * Note that a function that has pointer arguments and examines the
- * data pointed to must _not_ be declared `const'.  Likewise, a
- * function that calls a non-`const' function usually must not be
- * `const'.  It does not make sense for a `const' function to return
- * `void'.
- */
-#ifndef __attribute_const__
-# define __attribute_const__	/* unimplemented */
-#endif
-
-#ifndef __designated_init
-# define __designated_init
-#endif
+#endif /* __ASSEMBLY__ */
 
 /*
- * Tell gcc if a function is cold. The compiler will assume any path
- * directly leading to the call is unlikely.
+ * The below symbols may be defined for one or more, but not ALL, of the above
+ * compilers. We don't consider that to be an error, so set them to nothing.
+ * For example, some of them are for compiler specific plugins.
  */
-
-#ifndef __cold
-#define __cold
+#ifndef asm_volatile_goto
+#define asm_volatile_goto(x...) asm goto(x)
 #endif
-
-/* Simple shorthand for a section definition */
-#ifndef __section
-# define __section(S) __attribute__ ((__section__(#S)))
-#endif
-
-#ifndef __visible
-#define __visible
-#endif
-
-#ifndef __nostackprotector
-# define __nostackprotector
-#endif
-
-/*
- * Assume alignment of return value.
- */
-#ifndef __assume_aligned
-#define __assume_aligned(a, ...)
-#endif
-
 
 /* Are two types/vars the same type (ignoring qualifiers)? */
-#ifndef __same_type
-# define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
-#endif
+#define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
 
 /* Is this type a native word size -- useful for atomic operations */
-#ifndef __native_word
-# define __native_word(t) (sizeof(t) == sizeof(char) || sizeof(t) == sizeof(short) || sizeof(t) == sizeof(int) || sizeof(t) == sizeof(long))
+#define __native_word(t) \
+	(sizeof(t) == sizeof(char) || sizeof(t) == sizeof(short) || \
+	 sizeof(t) == sizeof(int) || sizeof(t) == sizeof(long))
+
+/* Compile time object size, -1 for unknown */
+#ifndef __compiletime_object_size
+# define __compiletime_object_size(obj) -1
 #endif
+#ifndef __compiletime_warning
+# define __compiletime_warning(message)
+#endif
+#ifndef __compiletime_error
+# define __compiletime_error(message)
+#endif
+
+#ifdef __OPTIMIZE__
+# define __compiletime_assert(condition, msg, prefix, suffix)		\
+	do {								\
+		extern void prefix ## suffix(void) __compiletime_error(msg); \
+		if (!(condition))					\
+			prefix ## suffix();				\
+	} while (0)
+#else
+# define __compiletime_assert(condition, msg, prefix, suffix) do { } while (0)
+#endif
+
+#define _compiletime_assert(condition, msg, prefix, suffix) \
+	__compiletime_assert(condition, msg, prefix, suffix)
+
+/**
+ * compiletime_assert - break build and emit msg if condition is false
+ * @condition: a compile-time constant condition to check
+ * @msg:       a message to emit if condition is false
+ *
+ * In tradition of POSIX assert, this macro will break the build if the
+ * supplied condition is *false*, emitting the supplied error message if the
+ * compiler has support to do so.
+ */
+#define compiletime_assert(condition, msg) \
+	_compiletime_assert(condition, msg, __compiletime_assert_, __COUNTER__)
+
+#define compiletime_assert_atomic_type(t)				\
+	compiletime_assert(__native_word(t),				\
+		"Need native word sized stores/loads for atomicity.")
 
 #endif /* __LINUX_COMPILER_TYPES_H */
