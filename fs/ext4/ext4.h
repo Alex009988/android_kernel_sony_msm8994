@@ -185,10 +185,6 @@ struct ext4_map_blocks {
  * Flags for ext4_io_end->flags
  */
 #define	EXT4_IO_END_UNWRITTEN	0x0001
-<<<<<<< HEAD
-#define EXT4_IO_END_DIRECT	0x0002
-=======
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 
 /*
  * For converting unwritten extents on a work queue. 'handle' is used for
@@ -204,11 +200,6 @@ typedef struct ext4_io_end {
 	unsigned int		flag;		/* unwritten or not */
 	loff_t			offset;		/* offset in the file */
 	ssize_t			size;		/* size of the extent */
-<<<<<<< HEAD
-	struct kiocb		*iocb;		/* iocb struct for AIO */
-	int			result;		/* error value for AIO */
-=======
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 	atomic_t		count;		/* reference counter */
 } ext4_io_end_t;
 
@@ -3023,21 +3014,13 @@ extern int ext4_move_extents(struct file *o_filp, struct file *d_filp,
 /* page-io.c */
 extern int __init ext4_init_pageio(void);
 extern void ext4_exit_pageio(void);
-<<<<<<< HEAD
-extern void ext4_ioend_shutdown(struct inode *);
-=======
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 extern ext4_io_end_t *ext4_init_io_end(struct inode *inode, gfp_t flags);
 extern ext4_io_end_t *ext4_get_io_end(ext4_io_end_t *io_end);
 extern int ext4_put_io_end(ext4_io_end_t *io_end);
 extern void ext4_put_io_end_defer(ext4_io_end_t *io_end);
 extern void ext4_io_submit_init(struct ext4_io_submit *io,
 				struct writeback_control *wbc);
-<<<<<<< HEAD
-extern void ext4_end_io_work(struct work_struct *work);
-=======
 extern void ext4_end_io_rsv_work(struct work_struct *work);
->>>>>>> ca9e820acdc... ext4: insert 3.18 version of fs/ext4, fs/jbd2 and associated header files
 extern void ext4_io_submit(struct ext4_io_submit *io);
 extern int ext4_bio_write_page(struct ext4_io_submit *io,
 			       struct page *page,

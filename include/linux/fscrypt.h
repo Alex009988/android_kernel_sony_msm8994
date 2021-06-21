@@ -97,14 +97,6 @@ struct fscrypt_operations {
 	unsigned (*max_namelen)(struct inode *);
 };
 
-static inline bool fscrypt_dummy_context_enabled(struct inode *inode)
-{
-	if (inode->i_sb->s_cop->dummy_context &&
-				inode->i_sb->s_cop->dummy_context(inode))
-		return true;
-	return false;
-}
-
 static inline bool fscrypt_valid_contents_enc_mode(u32 mode)
 {
 	return (mode == FS_ENCRYPTION_MODE_AES_256_XTS);
@@ -141,17 +133,6 @@ static inline bool fscrypt_has_encryption_key(const struct inode *inode)
 #include <linux/fscrypt_supp.h>
 
 #else /* !__FS_HAS_ENCRYPTION */
-
-static inline struct page *fscrypt_control_page(struct page *page)
-{
-	WARN_ON_ONCE(1);
-	return ERR_PTR(-EINVAL);
-}
-
-static inline bool fscrypt_has_encryption_key(const struct inode *inode)
-{
-	return 0;
-}
 
 #include <linux/fscrypt_notsupp.h>
 #endif /* __FS_HAS_ENCRYPTION */
