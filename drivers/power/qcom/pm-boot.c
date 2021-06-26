@@ -93,4 +93,3 @@ static int __init msm_pm_boot_init(void)
 	return ret;
 }
 postcore_initcall(msm_pm_boot_init);
-#endif
