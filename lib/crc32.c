@@ -225,80 +225,7 @@ static u32 __attribute_const__ gf2_multiply(u32 x, u32 y, u32 modulus)
 }
 
 /**
- * crc32_generic_shift - Append len 0 bytes to crc, in logarithmic time
- * @crc: The original little-endian CRC (i.e. lsbit is x^31 coefficient)
- * @len: The number of bytes. @crc is multiplied by x^(8*@len)
- * @polynomial: The modulus used to reduce the result to 32 bits.
- *
- * It's possible to parallelize CRC computations by computing a CRC
- * over separate ranges of a buffer, then summing them.
- * This shifts the given CRC by 8*len bits (i.e. produces the same effect
- * as appending len bytes of zero to the data), in time proportional
- * to log(len).
- */
-static u32 __attribute_const__ crc32_generic_shift(u32 crc, size_t len,
-						   u32 polynomial)
-{
-	u32 power = polynomial;	/* CRC of x^32 */
-	int i;
-
-	/* Shift up to 32 bits in the simple linear way */
-	for (i = 0; i < 8 * (int)(len & 3); i++)
-		crc = (crc >> 1) ^ (crc & 1 ? polynomial : 0);
-
-	len >>= 2;
-	if (!len)
-		return crc;
-
-	for (;;) {
-		/* "power" is x^(2^i), modulo the polynomial */
-		if (len & 1)
-			crc = gf2_multiply(crc, power, polynomial);
-
-		len >>= 1;
-		if (!len)
-			break;
-
-		/* Square power, advancing to x^(2^(i+1)) */
-		power = gf2_multiply(power, power, polynomial);
-	}
-
-	return crc;
-}
-
-u32 __attribute_const__ crc32_le_shift(u32 crc, size_t len)
-{
-	return crc32_generic_shift(crc, len, CRCPOLY_LE);
-}
-
-u32 __attribute_const__ __crc32c_le_shift(u32 crc, size_t len)
-{
-	return crc32_generic_shift(crc, len, CRC32C_POLY_LE);
-}
-EXPORT_SYMBOL(crc32_le_shift);
-EXPORT_SYMBOL(__crc32c_le_shift);
-
-/*
- * This multiplies the polynomials x and y modulo the given modulus.
- * This follows the "little-endian" CRC convention that the lsbit
- * represents the highest power of x, and the msbit represents x^0.
- */
-static u32 __attribute_const__ gf2_multiply(u32 x, u32 y, u32 modulus)
-{
-	u32 product = x & 1 ? y : 0;
-	int i;
-
-	for (i = 0; i < 31; i++) {
-		product = (product >> 1) ^ (product & 1 ? modulus : 0);
-		x >>= 1;
-		product ^= x & 1 ? y : 0;
-	}
-
-	return product;
-}
-
-/**
- * crc32_generic_shift - Append len 0 bytes to crc, in logarithmic time
+ * crc32_generic_shift - Append @len 0 bytes to crc, in logarithmic time
  * @crc: The original little-endian CRC (i.e. lsbit is x^31 coefficient)
  * @len: The number of bytes. @crc is multiplied by x^(8*@len)
  * @polynomial: The modulus used to reduce the result to 32 bits.
@@ -1052,7 +979,6 @@ static int __init crc32c_test(void)
 	int i;
 	int errors = 0;
 	int bytes = 0;
-	struct timespec start, stop;
 	u64 nsec;
 	unsigned long flags;
 
@@ -1072,19 +998,16 @@ static int __init crc32c_test(void)
 	local_irq_save(flags);
 	local_irq_disable();
 
-	getnstimeofday(&start);
+	nsec = ktime_get_ns();
 	for (i = 0; i < 100; i++) {
 		if (test[i].crc32c_le != __crc32c_le(test[i].crc, test_buf +
 		    test[i].start, test[i].length))
 			errors++;
 	}
-	getnstimeofday(&stop);
+	nsec = ktime_get_ns() - nsec;
 
 	local_irq_restore(flags);
 	local_irq_enable();
-
-	nsec = stop.tv_nsec - start.tv_nsec +
-		1000000000 * (stop.tv_sec - start.tv_sec);
 
 	pr_info("crc32c: CRC_LE_BITS = %d\n", CRC_LE_BITS);
 
@@ -1138,7 +1061,6 @@ static int __init crc32_test(void)
 	int i;
 	int errors = 0;
 	int bytes = 0;
-	struct timespec start, stop;
 	u64 nsec;
 	unsigned long flags;
 
@@ -1161,7 +1083,7 @@ static int __init crc32_test(void)
 	local_irq_save(flags);
 	local_irq_disable();
 
-	getnstimeofday(&start);
+	nsec = ktime_get_ns();
 	for (i = 0; i < 100; i++) {
 		if (test[i].crc_le != crc32_le(test[i].crc, test_buf +
 		    test[i].start, test[i].length))
@@ -1171,13 +1093,10 @@ static int __init crc32_test(void)
 		    test[i].start, test[i].length))
 			errors++;
 	}
-	getnstimeofday(&stop);
+	nsec = ktime_get_ns() - nsec;
 
 	local_irq_restore(flags);
 	local_irq_enable();
-
-	nsec = stop.tv_nsec - start.tv_nsec +
-		1000000000 * (stop.tv_sec - start.tv_sec);
 
 	pr_info("crc32: CRC_LE_BITS = %d, CRC_BE BITS = %d\n",
 		 CRC_LE_BITS, CRC_BE_BITS);
