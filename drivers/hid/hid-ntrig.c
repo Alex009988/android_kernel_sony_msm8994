@@ -859,7 +859,7 @@ not_claimed_input:
 	return 1;
 }
 
-static int ntrig_input_configured(struct hid_device *hid,
+static void ntrig_input_configured(struct hid_device *hid,
 		struct hid_input *hidinput)
 
 {
