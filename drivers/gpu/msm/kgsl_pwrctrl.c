@@ -2277,13 +2277,6 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 	trace_kgsl_pwr_set_state(device, state);
 	device->state = state;
 	device->requested_state = KGSL_STATE_NONE;
-
-	spin_lock(&device->submit_lock);
-	if (state == KGSL_STATE_SLUMBER || state == KGSL_STATE_SUSPEND)
-		device->slumber = true;
-	else
-		device->slumber = false;
-	spin_unlock(&device->submit_lock);
 }
 
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
