@@ -1579,25 +1579,6 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 	queue_work(hap->wq, &hap->td_work);
 }
 
-/* enable interface from timed output class */
-static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
-{
-        struct qpnp_hap *hap = container_of(dev, struct qpnp_hap,
-                                         timed_dev);
-
-        spin_lock(&hap->td_lock);
-        hap->td_value = value;
-        spin_unlock(&hap->td_lock);
-
-        schedule_work(&hap->td_work);
-}
-
-void set_vibrate(int value)
-
-{
-	qpnp_hap_td_enable(&ghap->timed_dev, value);
-}
-
 /* play pwm bytes */
 int qpnp_hap_play_byte(u8 data, bool on)
 {
@@ -2328,3 +2309,4 @@ module_exit(qpnp_haptic_exit);
 
 MODULE_DESCRIPTION("qpnp haptic driver");
 MODULE_LICENSE("GPL v2");
+
