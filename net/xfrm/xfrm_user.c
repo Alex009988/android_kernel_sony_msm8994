@@ -854,13 +854,6 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
 	}
 	if (x->security)
 		ret = copy_sec_ctx(x->security, skb);
-	if (x->props.output_mark) {
-		ret = nla_put_u32(skb, XFRMA_OUTPUT_MARK, x->props.output_mark);
-		if (ret)
-			goto out;
-	}
-	if (x->security)
-		ret = copy_sec_ctx(x->security, skb);
 out:
 	return ret;
 }
@@ -1588,8 +1581,7 @@ static int xfrm_dump_policy_done(struct netlink_callback *cb)
 {
 	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
 
-	if (cb->args[0])
-		xfrm_policy_walk_done(walk);
+	xfrm_policy_walk_done(walk);
 	return 0;
 }
 
