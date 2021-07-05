@@ -667,15 +667,14 @@ static struct ion_handle *__ion_alloc(struct ion_client *client, size_t len,
 }
 
 struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
-		size_t align, unsigned int heap_id_mask,
-		unsigned int flags)
+			     size_t align, unsigned int heap_id_mask,
+			     unsigned int flags)
 {
 	return __ion_alloc(client, len, align, heap_id_mask, flags, false);
 }
 EXPORT_SYMBOL(ion_alloc);
 
-static void ion_free_nolock(struct ion_client *client, 
-					struct ion_handle *handle)
+static void ion_free_nolock(struct ion_client *client, struct ion_handle *handle)
 {
 	bool valid_handle;
 
@@ -1590,7 +1589,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct ion_handle *handle;
 
 		mutex_lock(&client->lock);
-		handle = ion_handle_get_by_id_nolock(client, 
+		handle = ion_handle_get_by_id_nolock(client,
 							data.handle.handle);
 		if (IS_ERR(handle)) {
 			mutex_unlock(&client->lock);
