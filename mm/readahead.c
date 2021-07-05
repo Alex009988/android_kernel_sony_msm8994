@@ -265,30 +265,6 @@ unsigned long ra_submit(struct file_ra_state *ra,
 }
 
 /*
- * Submit IO for the read-ahead request in file_ra_state.
- */
-unsigned long ra_submit(struct file_ra_state *ra,
-		       struct address_space *mapping, struct file *filp)
-{
-	int actual;
-
-	actual = __do_page_cache_readahead(mapping, filp,
-					ra->start, ra->size, ra->async_size);
-
-	return actual;
-}
-
-#define MAX_READAHEAD   ((512*4096)/PAGE_CACHE_SIZE)
-/*
- * Given a desired number of PAGE_CACHE_SIZE readahead pages, return a
- * sensible upper limit.
- */
-unsigned long max_sane_readahead(unsigned long nr)
-{
-	return min(nr, MAX_READAHEAD);
-}
-
-/*
  * Set the initial window size, round to next power of 2 and square
  * Small size is not dependant on max value - only a one-page read is regarded
  * as small.
@@ -602,7 +578,7 @@ static ssize_t
 do_readahead(struct address_space *mapping, struct file *filp,
 	     pgoff_t index, unsigned long nr)
 {
-	if (!mapping || !mapping->a_ops)
+	if (!mapping || !mapping->a_ops || !mapping->a_ops->readpage)
 		return -EINVAL;
 
 	force_page_cache_readahead(mapping, filp, index, nr);
