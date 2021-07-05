@@ -217,7 +217,7 @@ int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	if (unlikely(!mapping->a_ops->readpage && !mapping->a_ops->readpages))
 		return -EINVAL;
 
-	nr_to_read = min(nr_to_read, mapping->backing_dev_info->ra_pages);
+	nr_to_read = max_sane_readahead(nr_to_read);
 	while (nr_to_read) {
 		int err;
 
@@ -272,6 +272,16 @@ unsigned long ra_submit(struct file_ra_state *ra,
 					ra->start, ra->size, ra->async_size);
 
 	return actual;
+}
+
+#define MAX_READAHEAD   ((512*4096)/PAGE_CACHE_SIZE)
+/*
+ * Given a desired number of PAGE_CACHE_SIZE readahead pages, return a
+ * sensible upper limit.
+ */
+unsigned long max_sane_readahead(unsigned long nr)
+{
+	return min(nr, MAX_READAHEAD);
 }
 
 /*
