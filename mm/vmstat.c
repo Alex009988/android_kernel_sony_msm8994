@@ -1298,8 +1298,7 @@ static void start_cpu_timer(int cpu)
 	struct delayed_work *work = &per_cpu(vmstat_work, cpu);
 
 	INIT_DEFERRABLE_WORK(work, vmstat_update);
-	schedule_delayed_work_on(cpu,
-		&per_cpu(vmstat_work, cpu), 0);
+	schedule_delayed_work_on(cpu, work, __round_jiffies_relative(HZ, cpu));
 }
 
 /*
