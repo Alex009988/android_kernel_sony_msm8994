@@ -1155,14 +1155,13 @@ EXPORT_SYMBOL(posix_lock_file_wait);
 
 /**
  * locks_mandatory_locked - Check for an active lock
- * @file: the file to check
+ * @inode: the file to check
  *
  * Searches the inode's list of locks to find any POSIX locks which conflict.
  * This function is called from locks_verify_locked() only.
  */
-int locks_mandatory_locked(struct file *file)
+int locks_mandatory_locked(struct inode *inode)
 {
-	struct inode *inode = file_inode(file);
 	fl_owner_t owner = current->files;
 	struct file_lock *fl;
 
@@ -1173,7 +1172,7 @@ int locks_mandatory_locked(struct file *file)
 	for (fl = inode->i_flock; fl != NULL; fl = fl->fl_next) {
 		if (!IS_POSIX(fl))
 			continue;
-		if (fl->fl_owner != owner && fl->fl_owner != (fl_owner_t)file)
+		if (fl->fl_owner != owner)
 			break;
 	}
 	spin_unlock(&inode->i_lock);
