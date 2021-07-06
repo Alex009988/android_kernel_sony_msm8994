@@ -1063,7 +1063,7 @@ extern int vfs_test_lock(struct file *, struct file_lock *);
 extern int vfs_lock_file(struct file *, unsigned int, struct file_lock *, struct file_lock *);
 extern int vfs_cancel_lock(struct file *filp, struct file_lock *fl);
 extern int flock_lock_file_wait(struct file *filp, struct file_lock *fl);
-extern int __break_lease(struct inode *inode, unsigned int flags, unsigned int type);
+extern int __break_lease(struct inode *inode, unsigned int flags);
 extern void lease_get_mtime(struct inode *, struct timespec *time);
 extern int generic_setlease(struct file *, long, struct file_lock **);
 extern int vfs_setlease(struct file *, long, struct file_lock **);
@@ -1172,7 +1172,7 @@ static inline int flock_lock_file_wait(struct file *filp,
 	return -ENOLCK;
 }
 
-static inline int __break_lease(struct inode *inode, unsigned int mode, unsigned int type)
+static inline int __break_lease(struct inode *inode, unsigned int mode)
 {
 	return 0;
 }
@@ -2029,17 +2029,9 @@ static inline int locks_verify_truncate(struct inode *inode,
 static inline int break_lease(struct inode *inode, unsigned int mode)
 {
 	if (inode->i_flock)
-		return __break_lease(inode, mode, FL_LEASE);
+		return __break_lease(inode, mode);
 	return 0;
 }
-
-static inline int break_deleg(struct inode *inode, unsigned int mode)
-{
-	if (inode->i_flock)
-		return __break_lease(inode, mode, FL_DELEG);
-	return 0;
-}
-
 #else /* !CONFIG_FILE_LOCKING */
 static inline int locks_mandatory_locked(struct inode *inode)
 {
@@ -2079,10 +2071,6 @@ static inline int break_lease(struct inode *inode, unsigned int mode)
 	return 0;
 }
 
-static inline int break_deleg(struct inode *inode, unsigned int mode)
-{
-	return 0;
-}
 #endif /* CONFIG_FILE_LOCKING */
 
 /* fs/open.c */
