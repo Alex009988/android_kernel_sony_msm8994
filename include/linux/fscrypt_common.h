@@ -1,17 +1,14 @@
 /*
- * fscrypt.h: declarations for per-file encryption
- *
- * Filesystems that implement per-file encryption include this header
- * file with the __FS_HAS_ENCRYPTION set according to whether that filesystem
- * is being built with encryption support or not.
+ * fscrypt_common.h: common declarations for per-file encryption
  *
  * Copyright (C) 2015, Google, Inc.
  *
  * Written by Michael Halcrow, 2015.
  * Modified by Jaegeuk Kim, 2015.
  */
-#ifndef _LINUX_FSCRYPT_H
-#define _LINUX_FSCRYPT_H
+
+#ifndef _LINUX_FSCRYPT_COMMON_H
+#define _LINUX_FSCRYPT_COMMON_H
 
 #include <linux/key.h>
 #include <linux/fs.h>
@@ -49,6 +46,17 @@ struct fscrypt_symlink_data {
 	char encrypted_path[1];
 } __packed;
 
+/**
+ * This function is used to calculate the disk space required to
+ * store a filename of length l in encrypted symlink format.
+ */
+static inline u32 fscrypt_symlink_data_len(u32 l)
+{
+	if (l < FS_CRYPTO_BLOCK_SIZE)
+		l = FS_CRYPTO_BLOCK_SIZE;
+	return (l + sizeof(struct fscrypt_symlink_data) - 1);
+}
+
 struct fscrypt_str {
 	unsigned char *name;
 	u32 len;
@@ -79,23 +87,30 @@ struct fscrypt_operations {
 	unsigned int flags;
 	const char *key_prefix;
 	int (*get_context)(struct inode *, void *, size_t);
+	int (*prepare_context)(struct inode *);
 	int (*set_context)(struct inode *, const void *, size_t, void *);
-	bool (*dummy_context)(struct inode *);
+	int (*dummy_context)(struct inode *);
+	bool (*is_encrypted)(struct inode *);
 	bool (*empty_dir)(struct inode *);
 	unsigned (*max_namelen)(struct inode *);
 };
 
+static inline bool fscrypt_dummy_context_enabled(struct inode *inode)
+{
+	if (inode->i_sb->s_cop->dummy_context &&
+				inode->i_sb->s_cop->dummy_context(inode))
+		return true;
+	return false;
+}
+
 static inline bool fscrypt_valid_contents_enc_mode(u32 mode)
 {
-	if (contents_mode == FS_ENCRYPTION_MODE_AES_128_CBC &&
-	    filenames_mode == FS_ENCRYPTION_MODE_AES_128_CTS)
-		return true;
+	return (mode == FS_ENCRYPTION_MODE_AES_256_XTS);
+}
 
-	if (contents_mode == FS_ENCRYPTION_MODE_AES_256_XTS &&
-	    filenames_mode == FS_ENCRYPTION_MODE_AES_256_CTS)
-		return true;
-
-	return false;
+static inline bool fscrypt_valid_filenames_enc_mode(u32 mode)
+{
+	return (mode == FS_ENCRYPTION_MODE_AES_256_CTS);
 }
 
 static inline bool fscrypt_is_dot_dotdot(const struct qstr *str)
@@ -109,24 +124,23 @@ static inline bool fscrypt_is_dot_dotdot(const struct qstr *str)
 	return false;
 }
 
-#if __FS_HAS_ENCRYPTION
-
 static inline struct page *fscrypt_control_page(struct page *page)
 {
+#if IS_ENABLED(CONFIG_FS_ENCRYPTION)
 	return ((struct fscrypt_ctx *)page_private(page))->w.control_page;
+#else
+	WARN_ON_ONCE(1);
+	return ERR_PTR(-EINVAL);
+#endif
 }
 
-static inline bool fscrypt_has_encryption_key(const struct inode *inode)
+static inline int fscrypt_has_encryption_key(const struct inode *inode)
 {
+#if IS_ENABLED(CONFIG_FS_ENCRYPTION)
 	return (inode->i_crypt_info != NULL);
+#else
+	return 0;
+#endif
 }
 
-#include <linux/fscrypt_supp.h>
-
-#else /* !__FS_HAS_ENCRYPTION */
-
-#include <linux/fscrypt_notsupp.h>
-#endif /* __FS_HAS_ENCRYPTION */
-
-
-#endif	/* _LINUX_FSCRYPT_H */
+#endif	/* _LINUX_FSCRYPT_COMMON_H */
