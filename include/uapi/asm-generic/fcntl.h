@@ -186,6 +186,8 @@ struct flock {
 };
 #endif
 
+#ifndef CONFIG_64BIT
+
 #ifndef HAVE_ARCH_STRUCT_FLOCK64
 #ifndef __ARCH_FLOCK64_PAD
 #define __ARCH_FLOCK64_PAD
@@ -200,5 +202,6 @@ struct flock64 {
 	__ARCH_FLOCK64_PAD
 };
 #endif
+#endif /* !CONFIG_64BIT */
 
 #endif /* _ASM_GENERIC_FCNTL_H */
