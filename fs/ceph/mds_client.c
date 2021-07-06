@@ -1558,7 +1558,7 @@ retry:
 	*base = ceph_ino(temp->d_inode);
 	*plen = len;
 	dout("build_path on %p %d built %llx '%.*s'\n",
-	     dentry, d_count(dentry), *base, len, path);
+	     dentry, dentry->d_count, *base, len, path);
 	return path;
 }
 
