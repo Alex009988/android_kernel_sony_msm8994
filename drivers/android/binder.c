@@ -924,8 +924,8 @@ static void binder_delete_free_buffer(struct binder_proc *proc,
 				      struct binder_buffer *buffer)
 {
 	struct binder_buffer *prev, *next = NULL;
-	bool to_free = true;
 
+	bool to_free = true;
 	BUG_ON(proc->buffers.next == &buffer->entry);
 	prev = binder_buffer_prev(buffer);
 	BUG_ON(!prev->free);
@@ -933,7 +933,7 @@ static void binder_delete_free_buffer(struct binder_proc *proc,
 		to_free = false;
 		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
 			     "%d: merge free, buffer %pK share page with %pK\n",
-			      proc->pid, buffer->data, prev->data);
+			     proc->pid, buffer->data, prev->data);
 	}
 
 	if (!list_is_last(&buffer->entry, &proc->buffers)) {
@@ -1622,8 +1622,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 			binder_debug(BINDER_DEBUG_TRANSACTION,
 				     "        node %d u%016llx\n",
 				     node->debug_id, (u64)node->ptr);
-			binder_dec_node(node, hdr->type == BINDER_TYPE_BINDER,
-					0);
+			binder_dec_node(node, hdr->type == BINDER_TYPE_BINDER, 0);
 		} break;
 		case BINDER_TYPE_HANDLE:
 		case BINDER_TYPE_WEAK_HANDLE: {
@@ -3584,7 +3583,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		ret = -ENOMEM;
 		failure_string = "alloc buffer struct";
 		goto err_alloc_buf_struct_failed;
-        }
+	}
 
 	/* binder_update_page_range assumes preemption is disabled */
 	preempt_disable();
@@ -3645,10 +3644,10 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	INIT_LIST_HEAD(&proc->todo);
 	init_waitqueue_head(&proc->wait);
 	proc->default_priority = task_nice(current);
-	INIT_LIST_HEAD(&proc->buffers);
 	binder_dev = container_of(filp->private_data, struct binder_device,
 				  miscdev);
 	proc->context = &binder_dev->context;
+	INIT_LIST_HEAD(&proc->buffers);
 
 	binder_lock(proc->context, __func__);
 
