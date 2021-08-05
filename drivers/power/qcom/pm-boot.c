@@ -1,3 +1,4 @@
+#if !defined(__x86_64__) && !defined(__i386__)
 /* Copyright (c) 2011-2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
