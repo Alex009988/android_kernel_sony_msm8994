@@ -29,7 +29,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "noirqdebug";
+		bootargs = "noirqdebug norandmaps";
 	};
 
 	firmware: firmware {
@@ -41,7 +41,7 @@
 					compatible = "android,system";
 					dev = "/dev/block/platform/soc.0/f9824900.sdhci/by-name/system";
 					type = "ext4";
-					mnt_flags = "ro,barrier=1,discard";
+					mnt_flags = "ro,noatime,discard,noauto_da_alloc";
 					fsmgr_flags = "wait";
 					status = "ok";
 				};
@@ -99,6 +99,7 @@
 		CPU0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			clock-frequency = <1555200000>;
 			reg = <0x0>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc0>;
@@ -127,6 +128,7 @@
 		CPU1: cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			clock-frequency = <1555200000>;
 			reg = <0x1>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc1>;
@@ -146,6 +148,7 @@
 		CPU2: cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			clock-frequency = <1555200000>;
 			reg = <0x2>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc2>;
@@ -165,6 +168,7 @@
 		CPU3: cpu@3 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			clock-frequency = <1555200000>;
 			reg = <0x3>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc3>;
@@ -184,6 +188,7 @@
 		CPU4: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
+			clock-frequency = <1958400000>;
 			reg = <0x100>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc4>;
@@ -218,6 +223,7 @@
 		CPU5: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
+			clock-frequency = <1958400000>;
 			reg = <0x101>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc5>;
@@ -243,6 +249,7 @@
 		CPU6: cpu@102 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
+			clock-frequency = <1958400000>;
 			reg = <0x102>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc6>;
@@ -268,6 +275,7 @@
 		CPU7: cpu@103 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
+			clock-frequency = <1958400000>;
 			reg = <0x103>;
 			enable-method = "qcom,8994-arm-cortex-acc";
 			qcom,acc = <&acc7>;
@@ -293,7 +301,7 @@
 		energy-costs {
  			CPU_COST_0: core-cost0 {
  				busy-cost-data = <
-					119	5	/*302*/
+					120     4	/*302*/
 					136     7
 					174    16
 					212    26
@@ -302,9 +310,9 @@
 					309    76
 					339   102
 					424   161
-					509   227	
-					559   272	/*1536*/
-					600   316	/*1624*/
+					509   227	/*1440*/
+					543   242	/*1536*/
+					577   257	/*1632*/
  				>;
  				idle-cost-data = <
  			  		33 25 23 18
@@ -312,19 +320,21 @@
  			};
  			CPU_COST_1: core-cost1 {
  				busy-cost-data = <
-					 220   306
-					 290   320
-					 360   334
-					 425   432
-					 490   533
-					 599   721
-					 708   917
-		       			 762  1058
-		       			 817  1203
-					 871  1410
-		       			 926  1612
-		       			 975  1868
-		       			1024  2126
+					 180    300	/*302*/
+					 220    306
+					 290    320
+					 360    334
+					 425    432
+					 490    533
+					 599    721
+					 708    917
+					 762   1058
+					 817   1203
+					 871   1410
+					 926   1612
+					 975   1868
+					1024   2126	/*1824*/
+					1078   2238	/*1920*/
 				>;
 				idle-cost-data = <
 			  		65 60 28 21
@@ -332,8 +342,7 @@
  			};
  			CLUSTER_COST_0: cluster-cost0 {
  				busy-cost-data = <
- 					184    74
-					110    10	/*302*/
+					120     7	/*302*/
 					136    14
 					174    27
 					212    39
@@ -342,9 +351,9 @@
 					309    79
 					339    94
 					424   132
-					509   165
-					559   202	/*1536*/
-					600   226	/*1624*/
+					509   165	/*1440*/
+					543   176	/*1536*/
+					577   187	/*1632*/
 				>;
 				idle-cost-data = <
 			 		0 0 0 0
@@ -352,6 +361,7 @@
 			};
 			CLUSTER_COST_1: cluster-cost1 {
 				busy-cost-data = <
+					 180   80	/*302*/
 					 220   80
 					 290   80
 					 360   80
@@ -359,12 +369,13 @@
 					 490   80
 					 599   80
 					 708   80
-		       			 762   80
-		       			 817   80
+					 762   80
+					 817   80
 					 871   80
-		       			 926   80
-		       			 975   80
-		       			1024   80
+					 926   80
+					 975   80
+					1024   80	/*1824*/
+					1078   160	/*1920*/
 				>;
 				idle-cost-data = <
 			 		0 0 0 0
@@ -1228,6 +1239,7 @@
 		qcom,cpu-dma-latency-us = <301 70>;
 		qcom,cpu-affinity = "affine_cores";
 		qcom,cpu-affinity-mask = <0x0f 0xf0>;
+		qcom,large-address-bus;
 		qcom,wakeup-on-idle;
 
 		qcom,msm-bus,name = "sdhc1";
@@ -3317,24 +3329,18 @@
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <7>;
-		qcom,poll-ms = <250>;
+		qcom,poll-ms = <2000>;
 		qcom,limit-temp = <60>;
-		qcom,temp-hysteresis = <10>;
-		qcom,therm-reset-temp = <115>;
-		qcom,freq-step = <2>;
-		qcom,freq-control-mask = <0xff>;
-		qcom,core-limit-temp = <80>;
+		qcom,temp-hysteresis = <5>;
+		qcom,therm-reset-temp = <120>;
+		qcom,freq-step = <1>;
+		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <0xfe>;
-		qcom,hotplug-temp = <105>;
-		qcom,hotplug-temp-hysteresis = <40>;
-		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor8",
-				   "tsens_tz_sensor9", "tsens_tz_sensor10",
-				   "tsens_tz_sensor13", "tsens_tz_sensor14",
-				   "tsens_tz_sensor15", "tsens_tz_sensor6";
-		qcom,freq-mitigation-temp = <95>;
-		qcom,freq-mitigation-temp-hysteresis = <10>;
-		qcom,freq-mitigation-value = <960000>;
+		qcom,core-control-list = <&CPU2 &CPU3 &CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,hotplug-temp = <70>;
+		qcom,hotplug-temp-hysteresis = <10>;
+		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor8", "tsens_tz_sensor9", "tsens_tz_sensor10", "tsens_tz_sensor13", "tsens_tz_sensor14", "tsens_tz_sensor15", "tsens_tz_sensor6";
+		qcom,disable-freq-mitigation;
 		qcom,freq-mitigation-control-mask = <0xF0>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
@@ -3370,7 +3376,6 @@
 
 	qcom,bcl {
 		compatible = "qcom,bcl";
-		qcom,bcl-enable;
 		qcom,bcl-framework-interface;
 		qcom,bcl-freq-control-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,bcl-hotplug-list = <&CPU6 &CPU7>;
@@ -3427,7 +3432,7 @@
 		reg = <0xfc4b8000 0x1000>;
 		qcom,low-hyst-temp = <10>;
 		qcom,high-hyst-temp = <5>;
-		qcom,polling-interval = <50>;
+		qcom,polling-interval = <250>;
 
 		qcom,core-mapping {
 			qcom,cpu0-chars {
