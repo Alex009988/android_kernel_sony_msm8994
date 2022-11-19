@@ -3514,10 +3514,10 @@ dhd_process_full_gscan_result(dhd_pub_t *dhd, const void *data, uint32 len, int 
 		DHD_ERROR(("Invalid gscan result (NULL pointer)\n"));
 		goto exit;
 	}
-<<<<<<< HEAD
+//<<<<<<< HEAD
 
-=======
->>>>>>> 8ee042d1b35b (net: wireless: bcmdhd: Update to 1.71.26)
+//=======
+//>>>>>>> 8ee042d1b35b (net: wireless: bcmdhd: Update to 1.71.26)
 	if ((len < sizeof(*gscan_result)) ||
 	    (len < dtoh32(gscan_result->buflen)) ||
 	    (dtoh32(gscan_result->buflen) >
